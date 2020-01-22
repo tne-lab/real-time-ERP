@@ -162,15 +162,15 @@ namespace RealTimeERP
             ttlButtons.insert(chan, button);
         }
     }
-
+/*
     void ERPEditor::startAcquisition()
     {
-        canvas->beginAnimation();
+        //canvas->beginAnimation();
     }
 
     void ERPEditor::stopAcquisition()
     {
-        canvas->endAnimation();
+        //canvas->endAnimation();
     }
 
     Visualizer* ERPEditor::createNewCanvas()
@@ -178,7 +178,7 @@ namespace RealTimeERP
         canvas = new ERPVisualizer(processor);
         return canvas;
     }
-
+*/
 
     bool ERPEditor::updateIntLabel(Label* label, int min, int max, int defaultValue, int* out)
     {

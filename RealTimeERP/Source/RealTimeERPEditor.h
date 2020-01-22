@@ -33,7 +33,7 @@ Alright all of the options need to fit on editor, vis will be onyl for vis and c
 #define ERP_EDITOR_H_INCLUDED
 
 #include "RealTimeERP.h"
-#include "RealTimeERPVisualizer.h"
+//#include "RealTimeERPVisualizer.h"
 //using namespace RealTimeERP;
 namespace RealTimeERP
 {
@@ -50,10 +50,10 @@ namespace RealTimeERP
         void labelTextChanged(Label* labelThatHasChanged) override;
         void buttonClicked(Button* buttonClick) override;
 
-        void startAcquisition() override;
-        void stopAcquisition() override;
+        //void startAcquisition() override;
+        //void stopAcquisition() override;
 
-        Visualizer* createNewCanvas() override;
+        //Visualizer* createNewCanvas() override;
 
     private:
         ProcessorPlugin* processor;

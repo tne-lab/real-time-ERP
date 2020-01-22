@@ -27,37 +27,19 @@ ERPVisualizer::ERPVisualizer(ProcessorPlugin* n)
 	: viewport(new Viewport())
 	, canvas(new Component("canvas"))
 	, processor(n)
-	, freqStart(processor->freqStart)
-	, freqEnd(processor->freqEnd)
 	, canvasBounds(0, 0, 1, 1)
 {
 	refreshRate = 2;
-	;
 	juce::Rectangle<int> bounds;
 	curComb = 0;
 
 	const int TEXT_HT = 20;
 	int yPos = 60;
 	int titlePos = 5;
-	int ColumnII = 130;
-	optionsTitle = new Label("OptionsTitle", "Coherence & Spectrogram");
-	optionsTitle->setBounds(bounds = { titlePos, 0, 250, 50 });
-	optionsTitle->setFont(Font(20, Font::bold));
-	canvas->addAndMakeVisible(optionsTitle);
-	canvasBounds = canvasBounds.getUnion(bounds);
-
-	SpectrogramViewer = new ToggleButton("Spectrogram");
-	SpectrogramViewer->setBounds(bounds = { titlePos, 50 + 25 , 100, 25 });
-	SpectrogramViewer->setToggleState(false, dontSendNotification);
-	SpectrogramViewer->addListener(this);
-	canvas->addAndMakeVisible(SpectrogramViewer);
-	canvasBounds = canvasBounds.getUnion(bounds);
-
-	CoherenceViewer = new ToggleButton("Coherence");
-	CoherenceViewer->setBounds(bounds = { titlePos, 50 + 5, 100, 25 });
-	CoherenceViewer->setToggleState(true, dontSendNotification);
-	CoherenceViewer->addListener(this);
-	canvas->addAndMakeVisible(CoherenceViewer);
+	title = new Label("Title", "Real Time Evoked Potentials");
+	title->setBounds(bounds = { titlePos, 0, 250, 50 });
+	title->setFont(Font(20, Font::bold));
+	canvas->addAndMakeVisible(title);
 	canvasBounds = canvasBounds.getUnion(bounds);
 
 	channelGroupSet = new VerticalGroupSet("Channel Groups");
@@ -118,13 +100,13 @@ ERPVisualizer::ERPVisualizer(ProcessorPlugin* n)
 	columnTwoSet = new VerticalGroupSet("Column 2");
 	canvas->addAndMakeVisible(columnTwoSet, 0);
 	// ------- Reset Button ------- //
-	resetTFR = new TextButton("Reset");
-	resetTFR->setBounds(bounds = { ColumnII, yPos, 90, TEXT_HT + 15 });
-	resetTFR->addListener(this);
-	resetTFR->setTooltip(resetTip);
+	reset = new TextButton("Reset");
+	reset->setBounds(bounds = { ColumnII, yPos, 90, TEXT_HT + 15 });
+	reset->addListener(this);
+	reset->setTooltip(resetTip);
 	Colour col = (processor->ready) ? Colours::green : Colours::red;
-	resetTFR->setColour(TextButton::buttonColourId, col);
-	canvas->addAndMakeVisible(resetTFR);
+	reset->setColour(TextButton::buttonColourId, col);
+	canvas->addAndMakeVisible(reset);
 	canvasBounds = canvasBounds.getUnion(bounds);
 
 	// ------- Clear Group Button ------- //
@@ -143,7 +125,7 @@ ERPVisualizer::ERPVisualizer(ProcessorPlugin* n)
 	canvas->addAndMakeVisible(defaultGroups);
 	canvasBounds = canvasBounds.getUnion(bounds);
 
-	columnTwoSet->addGroup({ resetTFR, clearGroups, defaultGroups });
+	columnTwoSet->addGroup({ reset, clearGroups, defaultGroups });
 
 	// ------- Exponential or Linear Button ------- //
 	yPos += 40;
@@ -474,7 +456,7 @@ void ERPVisualizer::refresh()
 
 	freqStep = processor->freqStep;
 	Colour col = (processor->ready) ? Colours::green : Colours::red;
-	resetTFR->setColour(TextButton::buttonColourId, col);
+	reset->setColour(TextButton::buttonColourId, col);
 
 	// Get data from processor thread, then plot
 	if (processor->meanCoherence.hasUpdate())
@@ -613,9 +595,9 @@ void ERPVisualizer::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 
 void ERPVisualizer::buttonClicked(Button* buttonClicked)
 {
-	if (buttonClicked == resetTFR)
+	if (buttonClicked == reset)
 	{
-		processor->resetTFR();
+		processor->reset();
 	}
 	// Button was clicked that wasn't reseting the TFR, something important has changed. Tell node that we need to reset.
 	else
@@ -657,11 +639,11 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 
 		UpdateElectrodeOnTransition();
 
-		processor->resetTFR();
+		processor->reset();
 		IsSpectrogram = true;
 		combinationLabel->setEnabled(false);
 		combinationBox->setEnabled(false);
-		//resetTFR->setEnabled(false);
+		//reset->setEnabled(false);
 		clearGroups->setEnabled(false);
 		defaultGroups->setEnabled(false);
 		group1Title->setEnabled(false);
@@ -714,12 +696,12 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 		{
 			ChanNumChange = false;
 		}
-		processor->resetTFR();
+		processor->reset();
 		IsSpectrogram = false;
 		combinationLabel->setEnabled(true);
 		combinationBox->setEnabled(true);
 		group1Title->setEnabled(true);
-		resetTFR->setEnabled(true);
+		reset->setEnabled(true);
 		clearGroups->setEnabled(true);
 		defaultGroups->setEnabled(true);
 		SpectrogramViewer->setToggleState(false, dontSendNotification);
@@ -801,7 +783,7 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 	}
 
 	Colour col = (processor->ready) ? Colours::green : Colours::red;
-	resetTFR->setColour(TextButton::buttonColourId, col);
+	reset->setColour(TextButton::buttonColourId, col);
 }
 
 void ERPVisualizer::channelChanged(int chan, bool newState)
@@ -880,7 +862,7 @@ void ERPVisualizer::channelChanged(int chan, bool newState)
 			group2Buttons[i]->setEnabled(false);
 		}
 	}
-	processor->resetTFR();
+	processor->reset();
 	ChanNumChange = true;
 
 }
@@ -933,7 +915,7 @@ void ERPVisualizer::beginAnimation()
 	clearGroups->setEnabled(false);
 	defaultGroups->setEnabled(false);
 	UpdateVisualizerStateOntransition(false);
-	/*resetTFR->setEnabled(false);
+	/*reset->setEnabled(false);
 	linearButton->setEnabled(false);
 	expButton->setEnabled(false);
 	alphaE->setEditable(false);
@@ -955,7 +937,7 @@ void ERPVisualizer::endAnimation()
 		group2Buttons[i]->setEnabled(true);
 	}
 	UpdateVisualizerStateOntransition(true);
-	//resetTFR->setEnabled(true);
+	//reset->setEnabled(true);
 	//linearButton->setEnabled(true);
 	//expButton->setEnabled(true);
 	//alphaE->setEditable(false);
@@ -1142,7 +1124,7 @@ void ERPVisualizer::UpdateElectrodeOnTransition()
 
 void ERPVisualizer::UpdateVisualizerStateOntransition(bool flag)
 {
-	resetTFR->setEnabled(flag);
+	reset->setEnabled(flag);
 	linearButton->setEnabled(flag);
 	expButton->setEnabled(flag);
 	alphaE->setEditable(false);

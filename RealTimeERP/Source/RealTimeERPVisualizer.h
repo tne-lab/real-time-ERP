@@ -77,25 +77,13 @@ namespace RealTimeERP
         void channelChanged(int chan, bool newState);
 
     private:
-        // Update list of combinations to choose to graph.
-        void updateCombList();
-        // Update state of buttons based on grouping changing from non clicking ways
-        void updateGroupState();
-        // Update buttons based on inputs (checks if you have too many or too few buttons for the number of inputs).
-        void updateElectrodeButtons(int numInputs, int numButtons);
-        // creates a button for both group 1 and 2
-        void createElectrodeButton(int index);
-
         ProcessorPlugin* processor;
 
         ScopedPointer<Viewport>  viewport;
         ScopedPointer<Component> canvas;
         juce::Rectangle<int> canvasBounds;
 
-        //ScopedPointer<MatlabLikePlot> referencePlot;
-        //ScopedPointer<MatlabLikePlot> currentPlot;
-
-        ScopedPointer<Label> optionsTitle;
+        ScopedPointer<Label> title;
 
         ScopedPointer<VerticalGroupSet> channelGroupSet;
         ScopedPointer<Label> group1Title;
@@ -114,47 +102,15 @@ namespace RealTimeERP
         ScopedPointer<Label> alpha;
         ScopedPointer<Label> alphaE;
 
-        ScopedPointer<Label> artifactDesc;
-        ScopedPointer<Label> artifactEq;
-        ScopedPointer<Label> artifactE;
-        ScopedPointer<Label> artifactCount;
-
-        ScopedPointer<TextButton> resetTFR;
-        ScopedPointer<TextButton> clearGroups;
-        ScopedPointer<TextButton> defaultGroups;
-
-        ScopedPointer<Label> foiLabel;
-        ScopedPointer<Label> fstartLabel;
-        ScopedPointer<Label> fstartEditable;
-        ScopedPointer<Label> fendLabel;
-        ScopedPointer<Label> fendEditable;
-
-        bool ChanNumChange = false;
-        int lastDelElement;
-        int lastAddElement;
+        ScopedPointer<TextButton> reset;
 
         Array<int> group1Channels;
         Array<int> group2Channels;
 
-        Array<int> group1ChannelsCoh2Spec;
-        Array<int> group2ChannelsCoh2Spec;
-
-        float freqStep;
-        int nCombs;
-        int curComb;
-
-        int freqStart;
-        int freqEnd;
 
         ScopedPointer<MatlabLikePlot> cohPlot;
         std::vector<double> coherence;
         std::vector<std::vector<float>> coh;
-
-        bool IsSpectrogram = false;
-        ScopedPointer<ToggleButton> CoherenceViewer;
-        ScopedPointer<ToggleButton> SpectrogramViewer;
-        ScopedPointer<Label> SpecCalText;
-        std::vector<ScopedPointer<MatlabLikePlot>> plotHoldingVect;
 
         /*End*/
 

@@ -13,8 +13,8 @@ namespace RealTimeERP
 	class ProcessorPlugin : public GenericProcessor
 	{
     friend class ERPEditor;
-    friend class ERPVisualizer;
-
+    //friend class ERPVisualizer;
+s
     template<typename T>
     using vector = std::vector<T>;
 
