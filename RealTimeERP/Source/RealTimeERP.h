@@ -23,7 +23,7 @@ namespace RealTimeERP
     struct RealWeightedAccum
     {
         RealWeightedAccum(double alpha = 0)
-            : count(0)
+            : count(0.0)
             , sum(0)
             , alpha(alpha)
         {}

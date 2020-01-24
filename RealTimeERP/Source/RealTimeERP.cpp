@@ -40,6 +40,7 @@ ProcessorPlugin::ProcessorPlugin()
 {
     // Can do init stuff here
     // Events and such maybe?
+    setProcessorType(PROCESSOR_TYPE_SINK);
 }
 
 ProcessorPlugin::~ProcessorPlugin() {}
@@ -54,16 +55,17 @@ void ProcessorPlugin::updateSettings()
 {
     fs = GenericProcessor::getSampleRate();
     ERPLenSamps = fs * ERPLenSec;
-
     int numChannels = getActiveInputs().size();
     for (int i = 0; i < triggerChannels.size(); i++)
     {
         ttlTimestampBuffer.push_back(std::deque<uint64>());
     }
+   
    // vector<std::deque<uint64>> ttlTimestampBuffer(triggerChannels.size(), std::deque<uint64>());
-    vector<vector<vector<RWA>>> avgLFP(triggerChannels.size(), vector<vector<RWA>>(numChannels, vector<RWA>(ERPLenSamps, RWA(alpha))));
-    vector<vector<RWA>> avgERP(triggerChannels.size(), vector<RWA>(numChannels, RWA(alpha)));
-    vector<vector<float>> curSum(triggerChannels.size(), vector<float>(numChannels));
+    avgLFP = vector<vector<vector<RWA>>>(triggerChannels.size(), vector<vector<RWA>>(numChannels, vector<RWA>(ERPLenSamps, RWA(alpha)))); 
+    avgERP = vector<vector<RWA>>(triggerChannels.size(), vector<RWA>(numChannels, RWA(alpha)));
+    curSum = vector<vector<float>>(triggerChannels.size(), vector<float>(numChannels, 0));
+
 }
 
 void ProcessorPlugin::process(AudioSampleBuffer& buffer)
@@ -75,12 +77,10 @@ void ProcessorPlugin::process(AudioSampleBuffer& buffer)
     {
         if (!ttlTimestampBuffer[t].empty())
         {
-            std::cout << "GOT AN EVENT!!" << std::endl;
             Array<int> activeChannels = getActiveInputs();
             int numChannels = activeChannels.size();
             if (numChannels <= 0)
             {
-                std::cout << "yikes" << std::endl;
                 ttlTimestampBuffer[t].pop_front();
                 jassertfalse;
                 return;
@@ -91,11 +91,13 @@ void ProcessorPlugin::process(AudioSampleBuffer& buffer)
             float curBufStartSamp = 0; // Middle buffers use all ...
             float curBufEndSamp = nBufSamps; // samples in buffer
             bool done = false;
-            if (stimTime < bufTimestamp + nBufSamps) // first buffer, starts at stim, ends at end
+            if (stimTime > bufTimestamp) // first buffer, starts at stim, ends at end
             {
                 std::cout << "first buffer" << std::endl;
                 curBufStartSamp = stimTime - bufTimestamp;
+                std::cout << "Start Samp" << curBufStartSamp << std::endl;
             }
+            
             else if (stimTime + ERPLenSamps < bufTimestamp + nBufSamps) // last buffer, starts at 0, ends in middle
             {
                 std::cout << "Popping buffer" << std::endl;
@@ -111,14 +113,13 @@ void ProcessorPlugin::process(AudioSampleBuffer& buffer)
                 const float* rpIn = buffer.getReadPointer(chan);
                 for (int samp = curBufStartSamp; samp < curBufEndSamp; samp++)
                 {
-                    std::cout << "Adding up samples" << std::endl;
+                  
                     float val = rpIn[samp];
                     avgLFP[t][chan][samp].addValue(val); // Add to avg waveform
                     curSum[t][chan] += abs(val); // Add to area under curve sum
                 }
                 if (done)
                 {
-                    std::cout << "Current Sum: " << curSum[t][chan] << " for trigger " << t << " from channel " << chan << std::endl;
                     avgERP[t][chan].addValue(curSum[t][chan]);
                 }
             }
