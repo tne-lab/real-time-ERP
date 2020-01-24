@@ -27,59 +27,62 @@ namespace RealTimeERP
 {
     /************** editor *************/
     ERPEditor::ERPEditor(ProcessorPlugin* p)
-        : VisualizerEditor(p, 300, true)
+        : VisualizerEditor(p, 350, true)
     {
         tabText = "Real-Time ERP";
         processor = p;
         // Segment length
         int col0 = 5;
-        int col1 = 80;
-        int col2 = 110;
+        int col1 = 170;
+        int col2 = 280;
         int row0 = 25;
-        int row1 = 60;
-        int row2 = 95;
+        int row1 = 50;
+        int row2 = 75;
+        int row3 = 100;
 
         const int TEXT_HT = 20;
 
         //Make ttl buttons
-        ttlButtonLabel = createLabel("segLabel", "TTL Channels to Watch:", { col0, row0 + 25, 70, TEXT_HT });
+        ttlButtonLabel = createLabel("segLabel", "TTL Channels to Watch:", { col0, row0, col1-col0, TEXT_HT });
         addAndMakeVisible(ttlButtonLabel);
 
         int nEvents = processor->getTotalEventChannels();
         createElectrodeButtons(nEvents);
 
         // Window Length
-        ERPLenLabel = createLabel("winLabel", "Window Length(s):", { col1, row0 + 25, 70, TEXT_HT });
+        ERPLenLabel = createLabel("winLabel", "Window Length(s):", { col1, row0, col2-col1, TEXT_HT });
         addAndMakeVisible(ERPLenLabel);
 
-        ERPLenEditable = createEditable("winEditable", "2", "Input length of window", { col1 + 75, row0 + 25, 35, TEXT_HT });
+        ERPLenEditable = createEditable("winEditable", "1", "Input length of window", { col2, row0, 35, TEXT_HT });
         addAndMakeVisible(ERPLenEditable);
 
         juce::Rectangle<int> bounds;
         // Step Length
         static const String linearTip = "Linear weighting of ERPs.";
         linearButton = new ToggleButton("Linear");
-        linearButton->setBounds(bounds = { col1, row1, 70, TEXT_HT });
+        linearButton->setBounds(bounds = { col1, row1, col2 - col1, TEXT_HT });
         linearButton->setToggleState(true, dontSendNotification);
         linearButton->addListener(this);
         linearButton->setTooltip(linearTip);
         addAndMakeVisible(linearButton);
 
         static const String expTip = "Exponential weighting of ERPs. Set alpha using -1/alpha weighting.";
-        expButton = new ToggleButton("Exp");
-        expButton->setBounds(bounds = { col1, row2, 30, TEXT_HT });
+        expButton = new ToggleButton("Exponential");
+        expButton->setBounds(bounds = { col1, row2, col2 - col1, TEXT_HT });
         expButton->setToggleState(false, dontSendNotification);
         expButton->addListener(this);
         expButton->setTooltip(expTip);
         addAndMakeVisible(expButton);
 
-        alpha = createLabel("stepLabel", "Step Length(s):", { col1 + 30, row2, 75, TEXT_HT });
+        alpha = createLabel("alphaLabel", "Alpha:", { col1 + 25, row3, col2-col1-25, TEXT_HT });
         addAndMakeVisible(alpha);
 
-        alphaE = createEditable("winEditable", "2", "Input length of window", { col1 + 115, row2, 35, 27 });
+        alphaE = createEditable("alphaEditable", "0", "Input Value of Alpha", { col2, row3, 35, 27 });
         addAndMakeVisible(alphaE);
 
-        setEnabledState(false);
+        //createElectrodeButtons(8);
+
+        //setEnabledState(false);
     }
 
     ERPEditor::~ERPEditor() {}
@@ -116,69 +119,148 @@ namespace RealTimeERP
         if (labelThatHasChanged == alphaE)
         {
             float newVal;
-            if (updateFloatLabel(labelThatHasChanged, 0, INT_MAX, 8, &newVal))
+            if (updateFloatLabel(labelThatHasChanged, 0, FLT_MAX, 0.0, &newVal))
             {
                 processor->setParameter(ProcessorPlugin::ALPHA_E, static_cast<float>(newVal));
+            }
+        }
+        if (labelThatHasChanged == ERPLenEditable)
+        {
+            float newVal;
+            if (updateFloatLabel(labelThatHasChanged, 0, FLT_MAX, 1.0, &newVal))
+            {
+                processor->setParameter(ProcessorPlugin::ERP_LEN, static_cast<float>(newVal));
             }
         }
     }
 
     void ERPEditor::buttonClicked(Button* buttonClicked)
     {
+        if (buttonClicked == linearButton)
+        {
+            processor->setParameter(ProcessorPlugin::ALPHA_E, static_cast<float>(0));
+            expButton->setToggleState(false, dontSendNotification);
+        }
+
+        if (buttonClicked == expButton)
+        {
+            linearButton->setToggleState(false, dontSendNotification);
+            float newVal;
+            if (updateFloatLabel(alphaE, 0, FLT_MAX, 0.0, &newVal))
+            {
+                processor->setParameter(ProcessorPlugin::ALPHA_E, static_cast<float>(newVal));
+            }
+        }
+
         if (ttlButtons.contains((ElectrodeButton*)buttonClicked))
         {
-            ElectrodeButton* eButton = static_cast<ElectrodeButton*>(buttonClicked);
-            int buttonChan = eButton->getChannelNum() - 1;
-            processor->triggerChannels.addIfNotAlreadyThere(buttonChan);
+                ElectrodeButton* eButton = static_cast<ElectrodeButton*>(buttonClicked);
+                int buttonChan = eButton->getChannelNum() - 1;
+                bool state = eButton->getToggleState();
+                std::cout << "button state " << state << std::endl; 
+                if (state)
+                {
+                    processor->triggerChannels.addIfNotAlreadyThere(buttonChan);
+                    processor->triggerChannels.sort();
+                }
+                else
+                {
+                    std::cout << "REMOVING" << std::endl;
+                    processor->triggerChannels.removeFirstMatchingValue(buttonChan);
+                }
+                std::cout << "trigger channels" << std::endl;
+                for (int i = 0; i < processor->triggerChannels.size(); i++)
+                {
+                    std::cout << processor->triggerChannels[i] << std::endl;
+                }
         }
+
+        processor->updateSettings();
     }
 
     void ERPEditor::createElectrodeButtons(int nEvents)
     {
         int xPos = 5;
         juce::Rectangle<int> bounds;
-        // GROSS Fix
         int halfEvents = int(nEvents / 2);
-        for (int chan = 0; chan < halfEvents; chan++)
+        int width = 27;
+        int height = 27;
+        int yPos = 50;
+        bool buttonState;
+        for (int chan = 0; chan < nEvents; chan++)
         {
-            // row 1 buttons
+            // Is this already selected (when loaded in through xml)
+            if (processor->triggerChannels.contains(chan))
+            {
+                buttonState = true;
+            }
+            else
+            {
+                buttonState = false;
+            }
+            
+            // Create buttons
             ElectrodeButton* button = new ElectrodeButton(chan + 1);
-            button->setBounds(bounds = { xPos + chan * 20, 60, 20, 15 });
+            
+            if (chan < halfEvents)
+            {
+                button->setBounds(bounds = { xPos + chan * width, yPos, width, height });
+            }
+            else
+            {
+                button->setBounds(bounds = { xPos + (chan - halfEvents) * width, yPos + height, width, height });
+            }
+
+            
             button->setRadioGroupId(0);
             button->setButtonText(String(chan + 1));
             button->addListener(this);
-            addAndMakeVisible(button);
-            ttlButtons.insert(chan, button);
-        }
-        for (int chan = halfEvents; chan < nEvents; chan++)
-        {
-            // row 2 buttons
-            ElectrodeButton* button = new ElectrodeButton(chan + 1);
-            button->setBounds(bounds = { xPos + (chan - halfEvents) * 20, 75, 20, 15 });
-            button->setRadioGroupId(0);
-            button->setButtonText(String(chan + 1));
-            button->addListener(this);
+            button->setToggleState(buttonState, dontSendNotification);
             addAndMakeVisible(button);
             ttlButtons.insert(chan, button);
         }
     }
-/*
+
     void ERPEditor::startAcquisition()
     {
+        alphaE->setEditable(false);
+        ERPLenEditable->setEditable(false);
+        expButton->setEnabled(false);
+        linearButton->setEnabled(false);
+        for (int i = 0; i < ttlButtons.size(); i++)
+        {
+            ttlButtons[i]->setEnabled(false);
+        }
         //canvas->beginAnimation();
     }
 
     void ERPEditor::stopAcquisition()
     {
+        alphaE->setEditable(true);
+        ERPLenEditable->setEditable(true);
+        expButton->setEnabled(true);
+        linearButton->setEnabled(true);
+        for (int i = 0; i < ttlButtons.size(); i++)
+        {
+            ttlButtons[i]->setEnabled(true);
+        }
         //canvas->endAnimation();
     }
-
+   
     Visualizer* ERPEditor::createNewCanvas()
     {
         canvas = new ERPVisualizer(processor);
         return canvas;
     }
-*/
+
+    void ERPEditor::updateSettings()
+    {
+        alphaE->setText(String(processor->alpha), dontSendNotification);
+        ERPLenEditable->setText(String(processor->ERPLenSec), dontSendNotification);
+
+        createElectrodeButtons(8);
+    }
+
 
     bool ERPEditor::updateIntLabel(Label* label, int min, int max, int defaultValue, int* out)
     {

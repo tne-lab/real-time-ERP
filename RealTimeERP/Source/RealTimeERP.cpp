@@ -29,13 +29,13 @@ using namespace RealTimeERP;
 ProcessorPlugin::ProcessorPlugin()
     : GenericProcessor("Real Time ERP")
     , triggerChannels({})
-    , ttlTimestampBuffer({})
+    , ttlTimestampBuffer(0, std::deque<uint64>())
     , currentlyFilling(false)
     , ERPLenSec(1.0)
     , alpha(0)
     , avgERP(0,vector<RWA>(getNumOutputs()))
     , curSum(0,vector<float>(getNumOutputs()))
-    //, avgLFP            (getNumOutputs(), vector<AudioSampleBuffer>()
+    //, avgLFP            (getNumOutputs(), vector<AudioSampleBuffer>() // make a new audio buffer?
     , avgLFP(0, vector<vector<RWA>>(getNumOutputs(), vector<RWA>(0)))
 {
     // Can do init stuff here
@@ -56,6 +56,11 @@ void ProcessorPlugin::updateSettings()
     ERPLenSamps = fs * ERPLenSec;
 
     int numChannels = getActiveInputs().size();
+    for (int i = 0; i < triggerChannels.size(); i++)
+    {
+        ttlTimestampBuffer.push_back(std::deque<uint64>());
+    }
+   // vector<std::deque<uint64>> ttlTimestampBuffer(triggerChannels.size(), std::deque<uint64>());
     vector<vector<vector<RWA>>> avgLFP(triggerChannels.size(), vector<vector<RWA>>(numChannels, vector<RWA>(ERPLenSamps, RWA(alpha))));
     vector<vector<RWA>> avgERP(triggerChannels.size(), vector<RWA>(numChannels, RWA(alpha)));
     vector<vector<float>> curSum(triggerChannels.size(), vector<float>(numChannels));
@@ -70,10 +75,12 @@ void ProcessorPlugin::process(AudioSampleBuffer& buffer)
     {
         if (!ttlTimestampBuffer[t].empty())
         {
+            std::cout << "GOT AN EVENT!!" << std::endl;
             Array<int> activeChannels = getActiveInputs();
             int numChannels = activeChannels.size();
             if (numChannels <= 0)
             {
+                std::cout << "yikes" << std::endl;
                 ttlTimestampBuffer[t].pop_front();
                 jassertfalse;
                 return;
@@ -86,10 +93,12 @@ void ProcessorPlugin::process(AudioSampleBuffer& buffer)
             bool done = false;
             if (stimTime < bufTimestamp + nBufSamps) // first buffer, starts at stim, ends at end
             {
+                std::cout << "first buffer" << std::endl;
                 curBufStartSamp = stimTime - bufTimestamp;
             }
             else if (stimTime + ERPLenSamps < bufTimestamp + nBufSamps) // last buffer, starts at 0, ends in middle
             {
+                std::cout << "Popping buffer" << std::endl;
                 curBufEndSamp = stimTime + ERPLenSamps - bufTimestamp;
                 ttlTimestampBuffer[t].pop_front();
                 done = true;
@@ -102,12 +111,14 @@ void ProcessorPlugin::process(AudioSampleBuffer& buffer)
                 const float* rpIn = buffer.getReadPointer(chan);
                 for (int samp = curBufStartSamp; samp < curBufEndSamp; samp++)
                 {
+                    std::cout << "Adding up samples" << std::endl;
                     float val = rpIn[samp];
                     avgLFP[t][chan][samp].addValue(val); // Add to avg waveform
                     curSum[t][chan] += abs(val); // Add to area under curve sum
                 }
                 if (done)
                 {
+                    std::cout << "Current Sum: " << curSum[t][chan] << " for trigger " << t << " from channel " << chan << std::endl;
                     avgERP[t][chan].addValue(curSum[t][chan]);
                 }
             }
@@ -124,7 +135,10 @@ void ProcessorPlugin::handleEvent(const EventChannel* eventInfo, const MidiMessa
         for (int n = 0; n < triggerChannels.size(); n++)
         { // Check which ttl event is triggered
             if (ttl->getChannel() == triggerChannels[n] && ttl->getState())
+            {
+                std::cout << "Putting this into buffer " << Event::getTimestamp(event) << std::endl;
                 ttlTimestampBuffer[n].push_back(Event::getTimestamp(event)); // add timestamp of TTL to buffer
+            }
         }
     }
 }
@@ -145,24 +159,66 @@ Array<int> ProcessorPlugin::getActiveInputs()
 }
 
 
-bool ProcessorPlugin::hasEditor() const
-{
-    return true;
-}
-
-
 
 void ProcessorPlugin::setParameter(int parameterIndex, float newValue)
 {
-
+    if (parameterIndex == ALPHA_E)
+    {
+        alpha = newValue;
+        updateSettings();
+    }
+    else if (parameterIndex == ERP_LEN)
+    {
+        ERPLenSec = newValue;
+        updateSettings();
+    }
 }
 
 void ProcessorPlugin::saveCustomParametersToXml(XmlElement* parentElement)
 {
+    XmlElement* mainNode = parentElement->createNewChildElement("REALTIMEERP");
 
+    // ------ Save Trigger Channels ------ //
+    XmlElement* ttlNode = mainNode->createNewChildElement("ttl");
+
+    for (int i = 0; i < triggerChannels.size(); i++)
+    {
+        ttlNode->setAttribute("ttl" + String(i), triggerChannels[i]);
+    }
+
+    // ------ Save Other Params ------ //
+    mainNode->setAttribute("alpha", alpha);
+    mainNode->setAttribute("ERPLen", ERPLenSec);
 }
 
 void ProcessorPlugin::loadCustomParametersFromXml()
 {
-
+ 
+    if (parametersAsXml)
+    {
+        forEachXmlChildElementWithTagName(*parametersAsXml, mainNode, "REALTIMEERP")
+        {
+            // Load trigger channels
+            forEachXmlChildElementWithTagName(*mainNode, node, "ttl")
+            {
+                triggerChannels.clear();
+                for (int i = 0; i < 8; i++)
+                {
+                    int channel = node->getIntAttribute("ttl" + String(i), -1);
+                    if (channel != -1)
+                    {
+                        triggerChannels.addIfNotAlreadyThere(channel);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }       
+            }
+            // Load other params
+            alpha = mainNode->getDoubleAttribute("alpha");
+            ERPLenSec = mainNode->getDoubleAttribute("ERPLen");
+        }
+    }
+    editor->update();
 }

@@ -33,8 +33,8 @@ Alright all of the options need to fit on editor, vis will be onyl for vis and c
 #define ERP_EDITOR_H_INCLUDED
 
 #include "RealTimeERP.h"
-//#include "RealTimeERPVisualizer.h"
-//using namespace RealTimeERP;
+#include "RealTimeERPVisualizer.h"
+
 namespace RealTimeERP
 {
     class ERPEditor
@@ -50,15 +50,18 @@ namespace RealTimeERP
         void labelTextChanged(Label* labelThatHasChanged) override;
         void buttonClicked(Button* buttonClick) override;
 
-        //void startAcquisition() override;
-        //void stopAcquisition() override;
+        void startAcquisition() override;
+        void stopAcquisition() override;
 
-        //Visualizer* createNewCanvas() override;
+        Visualizer* createNewCanvas() override;
+        void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override {};
+
+        void createElectrodeButtons(int nEvents);
+
+        void updateSettings() override;
 
     private:
         ProcessorPlugin* processor;
-
-        void createElectrodeButtons(int nEvents);
 
         // Label explaining that these are for TTL Channels
         ScopedPointer<Label> ttlButtonLabel;

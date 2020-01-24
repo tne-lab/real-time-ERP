@@ -66,54 +66,21 @@ namespace RealTimeERP
         void endAnimation() override;
         void setParameter(int, float) override;
         void setParameter(int, int, int, float) override;
-        void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
-        void labelTextChanged(Label* labelThatHasChanged) override;
+        void comboBoxChanged(ComboBox* comboBoxThatHasChanged)  override {};
+        void labelTextChanged(Label* labelThatHasChanged) override {};
         void buttonEvent(Button* buttonEvent);
         void buttonClicked(Button* buttonClick) override;
         void paint(Graphics& g) override;
-        void UpdateElectrodeOnTransition();
-        void UpdateVisualizerStateOntransition(bool flag);
-        // Add/remove active channels (when changed in editor/new source) from group options
-        void channelChanged(int chan, bool newState);
 
     private:
         ProcessorPlugin* processor;
 
         ScopedPointer<Viewport>  viewport;
         ScopedPointer<Component> canvas;
+        ScopedPointer<Button> reset;
         juce::Rectangle<int> canvasBounds;
 
         ScopedPointer<Label> title;
-
-        ScopedPointer<VerticalGroupSet> channelGroupSet;
-        ScopedPointer<Label> group1Title;
-        ScopedPointer<Label> group2Title;
-        Array<ElectrodeButton*> group1Buttons;
-        Array<ElectrodeButton*> group2Buttons;
-
-        ScopedPointer<VerticalGroupSet> combinationGroupSet;
-        ScopedPointer<Label> combinationLabel;
-        ScopedPointer<ComboBox> combinationBox;
-
-        ScopedPointer<VerticalGroupSet> columnTwoSet;
-
-        ScopedPointer<ToggleButton> linearButton;
-        ScopedPointer<ToggleButton> expButton;
-        ScopedPointer<Label> alpha;
-        ScopedPointer<Label> alphaE;
-
-        ScopedPointer<TextButton> reset;
-
-        Array<int> group1Channels;
-        Array<int> group2Channels;
-
-
-        ScopedPointer<MatlabLikePlot> cohPlot;
-        std::vector<double> coherence;
-        std::vector<std::vector<float>> coh;
-
-        /*End*/
-
         bool updateIntLabel(Label* label, int min, int max, int defaultValue, int* out);
         bool updateFloatLabel(Label* label, float min, float max,
             float defaultValue, float* out);

@@ -66,7 +66,7 @@ extern "C" EXPORT int getPluginInfo(int index, Plugin::PluginInfo* info)
 		info->processor.type = ProcessorType::FilterProcessor;
 
 		//Class factory pointer. Replace "ProcessorPluginSpace::ProcessorPlugin" with the namespace and class name.
-		info->processor.creator = &(Plugin::createProcessor<RealTimeERP::RealTimeERP>);
+        info->processor.creator = &(Plugin::createProcessor<RealTimeERP::ProcessorPlugin>);
 		break;
 		/**
 		Examples for other plugin types

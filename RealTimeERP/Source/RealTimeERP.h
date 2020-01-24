@@ -13,14 +13,16 @@ namespace RealTimeERP
 	class ProcessorPlugin : public GenericProcessor
 	{
     friend class ERPEditor;
-    //friend class ERPVisualizer;
-s
+    friend class ERPVisualizer;
+
     template<typename T>
     using vector = std::vector<T>;
 
+    //using RWA = StatisticsAccumulator<float>;
+    
     struct RealWeightedAccum
     {
-        RealWeightedAccum(double alpha)
+        RealWeightedAccum(double alpha = 0)
             : count(0)
             , sum(0)
             , alpha(alpha)
@@ -44,6 +46,7 @@ s
         const double alpha;
     };
     using RWA = RealWeightedAccum;
+    
 
 	public:
 		/** The class constructor, used to initialize any members. */
@@ -112,7 +115,7 @@ s
         float fs;
         bool currentlyFilling;
         Array<int> triggerChannels;
-        Array<std::deque<uint64>> ttlTimestampBuffer;
+        vector<std::deque<uint64>> ttlTimestampBuffer;
         vector<vector<RWA>> avgERP; // Average area under curve (trigger(ttl 1-8) x channel)
         vector<vector<float>> curSum; // Currently sum of area under curve (trigger(ttl 1-8) x channel)
         //vector<vector<AudioSampleBuffer>> avgLFP;
@@ -124,7 +127,8 @@ s
         
         enum Parameter
         {
-            ALPHA_E
+            ALPHA_E,
+            ERP_LEN
         };
 	};
 }
