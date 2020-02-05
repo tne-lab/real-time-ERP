@@ -26,6 +26,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace RealTimeERP;
 
+// Make sure to check for acquistion and keep things from changing
+// Channels, ttls to watch, alpha, length
 
 /************** Visualizer *************/
 ERPVisualizer::ERPVisualizer(Node* n)
@@ -33,7 +35,7 @@ ERPVisualizer::ERPVisualizer(Node* n)
 	, canvas(new Component("canvas"))
 	, processor(n)
 	, canvasBounds(0, 0, 1, 1)
-	, chanList ({})
+	//, chanList ({})
 	, chanLabels({})
 	, channelYStart(140)
 	, channelYJump(50)
@@ -53,11 +55,11 @@ ERPVisualizer::ERPVisualizer(Node* n)
 		dummy2.push_back(i * 2 / 3000.0);
 	}
 	// -- Title -- //
-	title = createLabel("Title", "Real Time Evoked Potentials", { titlePos, 0, 250, 50 });
+	title = createLabel("Title", "Real Time Event Related Potentials", { titlePos, 0, 280, 50 });
 
 	// -- Reset Button -- //
 	resetButton = new TextButton("Reset");
-	resetButton->setBounds(bounds = { 270, 10, 50, 30 });
+	resetButton->setBounds(bounds = { 310, 10, 50, 30 });
 	resetButton->addListener(this);
 	resetButton->setColour(Label::backgroundColourId, Colours::red);
 	resetButton->setColour(Label::textColourId, Colours::white);
@@ -84,7 +86,6 @@ ERPVisualizer::ERPVisualizer(Node* n)
 	trigSelect->addListener(this);
 	canvas->addAndMakeVisible(trigSelect);
 	canvasBounds = canvasBounds.getUnion(bounds);
-	int numTriggers = processor->triggerChannels.size();
 	for (int t = 0; t < numTriggers; t++)
 	{
 		trigSelect->addItem(String(processor->triggerChannels[t].name), t + 1);
@@ -96,7 +97,6 @@ ERPVisualizer::ERPVisualizer(Node* n)
 	
 
 	// -- Create Channel Row Labels -- //
-	chanList = processor->getActiveInputs();
 	createChannelRowLabels();
 
 	// -- Pad Edges and Show -- //
@@ -158,18 +158,17 @@ void ERPVisualizer::resetTriggerChannels()
 
 void ERPVisualizer::update()
 {
-	//int numInputs = processor->getActiveInputs().size();
-	int numChannels = processor->getActiveInputs().size();
-	int numTriggers = processor->triggerChannels.size();
+	numChannels = processor->numChannels;
+	numTriggers = processor->triggerChannels.size();
 	avgLFP = vector<vector<vector<double>>>(numTriggers, vector<vector<double>>(numChannels, vector<double>(processor->ERPLenSamps, 0)));
 	avgSum = vector<vector<String>>(numTriggers, vector<String>(numChannels, "0"));
 	avgPeak = vector<vector<String>>(numTriggers, vector<String>(numChannels, "0"));
 	avgTimeToPeak = vector<vector<String>>(numTriggers, vector<String>(numChannels, "0"));
+
+	createChannelRowLabels();
 	createElectrodeButtons();
 	resetTriggerChannels();
 }
-
-//void ERPVisualizer::comboBoxChanged(ComboBox* comboBoxThatHasChanged){// Set which of our calculations to view (AUC, peak height or time to peak)}
 
 void ERPVisualizer::paint(Graphics& g) 
 {
@@ -178,7 +177,7 @@ void ERPVisualizer::paint(Graphics& g)
 	int trig = processor->triggerChannels[trigIndex].channel;
 	double max = NULL;
 	double min = NULL;
-	for (int j = 0; j < chanList.size(); j++)
+	for (int j = 0; j < numChannels; j++)
 	{
 		auto tempMax = std::max_element(avgLFP[trigIndex][j].begin(), avgLFP[trigIndex][j].end());
 		auto tempMin = std::min_element(avgLFP[trigIndex][j].begin(), avgLFP[trigIndex][j].end());
@@ -198,7 +197,7 @@ void ERPVisualizer::paint(Graphics& g)
 	if (totalY > 0)
 	{
 		// Loop through all channels
-		for (int chan = 0; chan < chanList.size(); chan++)
+		for (int chan = 0; chan < numChannels; chan++)
 		{
 			// Find pixel positions for start/end and top/bottom based on voltage data and length
 			double xPos = 250;
@@ -224,8 +223,6 @@ void ERPVisualizer::paint(Graphics& g)
 
 void ERPVisualizer::refresh() 
 {
-	int numChannels = processor->getActiveInputs().size();
-
 	if (processor->avgSum.hasUpdate())
 	{
 		int numTriggers = processor->triggerChannels.size();
@@ -352,7 +349,8 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 	if (buttonClicked == resetButton)
 	{
 		// Clears all vectors of data to start from scratch.
-		processor->reset();
+		processor->resetVectors();
+		update();
 	}
 
 	if (ttlButtons.contains((ElectrodeButton*)buttonClicked))
@@ -376,7 +374,7 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 void ERPVisualizer::channelChanged(int chan, bool newState)
 {
 	// Edit list of channels we are looking at
-	if (newState)
+	/*if (newState)
 	{
 		chanList.addIfNotAlreadyThere(chan);
 		chanList.sort();
@@ -384,8 +382,8 @@ void ERPVisualizer::channelChanged(int chan, bool newState)
 	else
 	{
 		chanList.removeFirstMatchingValue(chan);
-	}
-	createChannelRowLabels();
+	}*/
+	//createChannelRowLabels();
 }
 
 void ERPVisualizer::createChannelRowLabels()
@@ -395,9 +393,9 @@ void ERPVisualizer::createChannelRowLabels()
 	
 	// Redraw all for simplicity
 	chanLabels.clear();
-	for (int i = 0; i < chanList.size(); i++)
+	for (int i = 0; i < numChannels; i++)
 	{
-		chanLabels.add(createLabel("ChanLabel" + String(chanList[i] + 1), "Chan" + String(chanList[i] + 1) + " - ", { 5, channelYStart + i * channelYJump + channelYJump / 2, 125 , 40 }));
+		chanLabels.add(createLabel("ChanLabel" + String(processor->activeChannels[i] + 1), "Chan" + String(processor->activeChannels[i] + 1) + " - ", { 5, channelYStart + i * channelYJump + channelYJump / 2, 125 , 40 }));
 	}
 
 	// Redraw Canvas
@@ -418,8 +416,22 @@ Label* ERPVisualizer::createLabel(const String& name, const String& text,
 }
 
 
-void ERPVisualizer::beginAnimation() {}
-void ERPVisualizer::endAnimation() {}
+void ERPVisualizer::beginAnimation() 
+{
+	resetButton->setEnabled(false);
+	for (int t = 0; t < ttlButtons.size(); t++)
+	{
+		ttlButtons[t]->setEnabled(false);
+	}
+}
+void ERPVisualizer::endAnimation() 
+{
+	resetButton->setEnabled(true);
+	for (int t = 0; t < ttlButtons.size(); t++)
+	{
+		ttlButtons[t]->setEnabled(true);
+	}
+}
 
 void ERPVisualizer::setParameter(int, float) {}
 void ERPVisualizer::setParameter(int, int, int, float) {}

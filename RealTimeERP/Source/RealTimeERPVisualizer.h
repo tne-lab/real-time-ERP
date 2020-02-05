@@ -86,7 +86,8 @@ namespace RealTimeERP
         Array<ScopedPointer<Label>> calcLabels;
 
 
-        Array<int> chanList;
+        int numChannels;
+        int numTriggers;
 
         Array<Colour> colorList;
 

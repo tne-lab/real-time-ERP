@@ -136,6 +136,11 @@ namespace RealTimeERP
 
     private:
         float fs;
+        Array<int> activeChannels;
+        int numChannels;
+
+        void resetVectors();
+
         //Array<int> triggerChannels;
         vector<vector<int64>> ttlTimestampBuffer;
 

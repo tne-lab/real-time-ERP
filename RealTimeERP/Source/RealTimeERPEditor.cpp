@@ -154,7 +154,14 @@ void ERPEditor::channelChanged(int chan, bool newState)
 {
     // Let vis know to update number of channels shown
     ERPVisualizer* ERPcanvas = static_cast<ERPVisualizer*>(canvas.get());
-    ERPcanvas->channelChanged(chan, newState);
+    
+    //ERPcanvas->channelChanged(chan, newState);
+
+    if (!acquisitionIsActive)
+    {
+        processor->updateSettings();
+        canvas->update();
+    }
 }
 
 void ERPEditor::startAcquisition()

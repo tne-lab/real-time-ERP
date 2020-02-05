@@ -1,5 +1,5 @@
 # Real Time ERP [![DOI](https://zenodo.org/badge/234098259.svg)](https://zenodo.org/badge/latestdoi/234098259)
-This repository contains a plugin for the [Open Ephys GUI](https://github.com/open-ephys/plugin-GUI). This plugin provides the user with the ability to visualize and calculate evoked potentials in real time from a variety of event sources. 
+This repository contains a plugin for the [Open Ephys GUI](https://github.com/open-ephys/plugin-GUI). This plugin provides the user with the ability to visualize and calculate event related potentials in real time from a variety of event sources. 
 
 Cite this code using the doi above!
 

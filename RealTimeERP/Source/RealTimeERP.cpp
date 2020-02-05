@@ -58,7 +58,10 @@ void Node::updateSettings()
     // Things got updated, reset vector sizes based on new data
     fs = GenericProcessor::getSampleRate();
     ERPLenSamps = fs * ERPLenSec;
-    int numChannels = getActiveInputs().size();
+
+    activeChannels = getActiveInputs();
+    numChannels = activeChannels.size();
+
     int numTriggers = triggerChannels.size();
 
     // Init ttlTimestampBuffer to empty deques
@@ -139,8 +142,6 @@ void Node::process(AudioSampleBuffer& buffer)
         if (!ttlTimestampBuffer[t].empty())
         {
             // Make sure we have input
-            Array<int> activeChannels = getActiveInputs();
-            int numChannels = activeChannels.size();
             if (numChannels <= 0)
             {
                 ttlTimestampBuffer[t].erase(ttlTimestampBuffer[t].begin());
@@ -262,6 +263,11 @@ void Node::handleEvent(const EventChannel* eventInfo, const MidiMessage& event, 
             }
         }
     }
+}
+
+void Node::resetVectors()
+{
+    updateSettings();
 }
 
 Array<int> Node::getActiveInputs()
