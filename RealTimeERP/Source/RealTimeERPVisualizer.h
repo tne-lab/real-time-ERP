@@ -30,31 +30,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../../Source/Processors/Visualization/MatlabLikePlot.h"
 namespace RealTimeERP
 {
-    class VerticalGroupSet : public Component
-    {
-    public:
-        VerticalGroupSet(Colour backgroundColor = Colours::silver);
-        VerticalGroupSet(const String& componentName, Colour backgroundColor = Colours::silver);
-        ~VerticalGroupSet();
-
-        void addGroup(std::initializer_list<Component*> components);
-
-    private:
-        Colour bgColor;
-        int leftBound;
-        int rightBound;
-        OwnedArray<DrawableRectangle> groups;
-        static const int PADDING = 5;
-        static const int CORNER_SIZE = 8;
-    };
-
     class ERPVisualizer : public Visualizer
         , public ComboBox::Listener
         , public Button::Listener
         , public Label::Listener
     {
+        template<typename T>
+        using vector = std::vector<T>;
+
+        friend class ERPEditor;
+        friend class Node;
     public:
-        ERPVisualizer(ProcessorPlugin* n);
+        ERPVisualizer(Node* n);
         ~ERPVisualizer();
 
         void resized() override;
@@ -68,22 +55,57 @@ namespace RealTimeERP
         void setParameter(int, int, int, float) override;
         void comboBoxChanged(ComboBox* comboBoxThatHasChanged)  override {};
         void labelTextChanged(Label* labelThatHasChanged) override {};
-        void buttonEvent(Button* buttonEvent);
         void buttonClicked(Button* buttonClick) override;
         void paint(Graphics& g) override;
 
+        void channelChanged(int chan, bool newState);
+        void createElectrodeButtons();
+
     private:
-        ProcessorPlugin* processor;
+        Node* processor;
+
+        // Creates labeled rows based on num active channels
+        void createChannelRowLabels();
+        // Code to show canvas. Save on copy/pasting
+        void flipCanvas();
+        void drawERP(int chan);
+        void resetTriggerChannels();
+
+        Label* createLabel(const String& name, const String& text, juce::Rectangle<int> bounds);
 
         ScopedPointer<Viewport>  viewport;
         ScopedPointer<Component> canvas;
-        ScopedPointer<Button> reset;
         juce::Rectangle<int> canvasBounds;
 
         ScopedPointer<Label> title;
-        bool updateIntLabel(Label* label, int min, int max, int defaultValue, int* out);
-        bool updateFloatLabel(Label* label, float min, float max,
-            float defaultValue, float* out);
+        ScopedPointer<TextButton> resetButton;
+        ScopedPointer<ComboBox> calcSelect;
+        ScopedPointer<ComboBox> trigSelect;
+
+        Array<ScopedPointer<Label>> chanLabels;
+        Array<ScopedPointer<Label>> calcLabels;
+
+
+        Array<int> chanList;
+
+        Array<Colour> colorList;
+
+        vector<double> dummy;
+        vector<double> dummy2;
+
+        int channelYStart;
+        int channelYJump;
+
+        // Label explaining that these are for TTL Channels
+        ScopedPointer<Label> ttlButtonLabel;
+        Array<ElectrodeButton*> ttlButtons;
+
+        // Store most recent update so we decide which to show a
+        vector<vector<String>> avgSum; // Average area under curve (trigger(ttl 1-8) x channel)
+        vector<vector<vector<double>>> avgLFP; // Save the average waveform (trigger(ttl 1-8) x channel x vector of waveform)
+        vector<vector<String>> avgPeak; // Avg Peak height (trigger(ttl 1-8) x channel)
+        vector<vector<String>> avgTimeToPeak; // Avg time to the peak height (trigger(ttl 1-8) x channel)
+ 
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ERPVisualizer);
     };

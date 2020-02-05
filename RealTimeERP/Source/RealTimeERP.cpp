@@ -21,131 +21,250 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+// TODO : ADD IN ATOMIC SYNC TO SEND DATA TO VIS TO GET PAINTED
+// Update peak time to ms????
+
 #include "RealTimeERP.h"
 #include "RealTimeERPEditor.h"
 
 using namespace RealTimeERP;
 
-ProcessorPlugin::ProcessorPlugin()
+Node::Node()
     : GenericProcessor("Real Time ERP")
-    , triggerChannels({})
-    , ttlTimestampBuffer(0, std::deque<uint64>())
-    , currentlyFilling(false)
-    , ERPLenSec(1.0)
-    , alpha(0)
-    , avgERP(0,vector<RWA>(getNumOutputs()))
-    , curSum(0,vector<float>(getNumOutputs()))
-    //, avgLFP            (getNumOutputs(), vector<AudioSampleBuffer>() // make a new audio buffer?
-    , avgLFP(0, vector<vector<RWA>>(getNumOutputs(), vector<RWA>(0)))
+    , triggerChannels   ({})
+    //, ttlTimestampBuffer({})
+    , ERPLenSec         (1.0)
+    , alpha             (0)
+    , curLFP            ({})
+    , curSamp           ({})
+    //, avgLFP            ({})//(0, vector<vector<RWA>>(0, vector<RWA>(0)))
+    //, avgSum            ({})//(0,vector<RWA>(0))
+    //, avgPeak           ({})//(0, vector<RWA>(0, RWA(0)))
+    //, avgTimeToPeak     ({})//(0, vector<RWA>(0,RWA(0)))
 {
-    // Can do init stuff here
-    // Events and such maybe?
     setProcessorType(PROCESSOR_TYPE_SINK);
 }
 
-ProcessorPlugin::~ProcessorPlugin() {}
+Node::~Node() {}
 
-AudioProcessorEditor* ProcessorPlugin::createEditor()
+AudioProcessorEditor* Node::createEditor()
 {
     editor = new ERPEditor(this);
     return editor;
 }
 
-void ProcessorPlugin::updateSettings()
+void Node::updateSettings()
 {
+    // Things got updated, reset vector sizes based on new data
     fs = GenericProcessor::getSampleRate();
     ERPLenSamps = fs * ERPLenSec;
     int numChannels = getActiveInputs().size();
-    for (int i = 0; i < triggerChannels.size(); i++)
-    {
-        ttlTimestampBuffer.push_back(std::deque<uint64>());
-    }
-   
-   // vector<std::deque<uint64>> ttlTimestampBuffer(triggerChannels.size(), std::deque<uint64>());
-    avgLFP = vector<vector<vector<RWA>>>(triggerChannels.size(), vector<vector<RWA>>(numChannels, vector<RWA>(ERPLenSamps, RWA(alpha)))); 
-    avgERP = vector<vector<RWA>>(triggerChannels.size(), vector<RWA>(numChannels, RWA(alpha)));
-    curSum = vector<vector<float>>(triggerChannels.size(), vector<float>(numChannels, 0));
+    int numTriggers = triggerChannels.size();
 
+    // Init ttlTimestampBuffer to empty deques
+    ttlTimestampBuffer = std::vector<std::vector<int64>>(numTriggers, std::vector<int64>(5));
+    
+    //std::fill(ttlTimestampBuffer.begin(), ttlTimestampBuffer.end(), std::vector<int64>(5));
+    for (int i = 0; i < numTriggers; i++)
+    {
+        ttlTimestampBuffer[i].clear();
+    }
+
+    // Make a new audio sample buffer for each ttl trigger
+    curLFP = std::vector<AudioSampleBuffer>(numTriggers, AudioSampleBuffer(numChannels, ERPLenSamps));
+    curSamp = std::vector<uint64>(numTriggers, 0);
+    
+    localAvgLFP = vector<vector<vector<RWA>>>(numTriggers, vector<vector<RWA>>(numChannels, vector<RWA>(ERPLenSamps, RWA(alpha))));
+    avgLFP.map([=](vector<vector<vector<RWA>>>& vec)
+        {
+            vec = vector<vector<vector<RWA>>>(numTriggers, vector<vector<RWA>>(numChannels, vector<RWA>(ERPLenSamps, RWA(alpha))));
+        });
+
+    localAvgSum = vector<vector<RWA>>(numTriggers, vector<RWA>(numChannels, RWA(alpha)));
+    avgSum.map([=](vector<vector<RWA>>& vec)
+        {
+            vec = vector<vector<RWA>>(numTriggers, vector<RWA>(numChannels, RWA(alpha)));
+        });
+
+    localAvgPeak = vector<vector<RWA>>(numTriggers, vector<RWA>(numChannels, RWA(alpha)));
+    avgPeak.map([=](vector<vector<RWA>>& vec)
+        {
+            vec = vector<vector<RWA>>(numTriggers, vector<RWA>(numChannels, RWA(alpha)));
+        });
+
+    localAvgTimeToPeak = vector<vector<RWA>>(numTriggers, vector<RWA>(numChannels, RWA(alpha)));
+    avgTimeToPeak.map([=](vector<vector<RWA>>& vec)
+        {
+            vec = vector<vector<RWA>>(numTriggers, vector<RWA>(numChannels, RWA(alpha)));
+        });
+
+    // Populate Event sources
+    EventSources s;
+    String name;
+    eventSourceArray.clear();
+    int nEvents = getTotalEventChannels();
+    for (int chan = 0; chan < nEvents; chan++)
+    {
+        const EventChannel* event = getEventChannel(chan);
+        if (event->getChannelType() == EventChannel::TTL)
+        {
+            s.eventIndex = chan;
+            int nChans = event->getNumChannels();
+            for (int c = 0; c < nChans; c++)
+            {
+                s.channel = c;
+                name = event->getSourceName() + " (TTL" + String(c + 1) + ")";
+                s.name = name;
+                eventSourceArray.addIfNotAlreadyThere(s);
+            }
+        }
+    }
 }
 
-void ProcessorPlugin::process(AudioSampleBuffer& buffer)
+void Node::process(AudioSampleBuffer& buffer)
 {
 	checkForEvents(false); // Check for ttl events
-
+    AtomicScopedWritePtr<vector<vector<RWA>>> sumWriter(avgSum); 
+    AtomicScopedWritePtr<vector<vector<vector<RWA>>>> LFPWriter(avgLFP);
+    AtomicScopedWritePtr<vector<vector<RWA>>> peakWriter(avgPeak);
+    AtomicScopedWritePtr<vector<vector<RWA>>> ttPeakWriter(avgTimeToPeak);
+    if (!sumWriter.isValid() && !LFPWriter.isValid() && !peakWriter.isValid() && !peakWriter.isValid())
+    {
+        std::cout << "Not valid writers" << std::endl;
+        jassertfalse; // atomic sync data writer broken
+    }
     // If new TTL timestamp to handle (stim happened), timestamp is removed once calculation is complete
     for (int t = 0; t < triggerChannels.size(); t++)
     {
         if (!ttlTimestampBuffer[t].empty())
         {
+            // Make sure we have input
             Array<int> activeChannels = getActiveInputs();
             int numChannels = activeChannels.size();
             if (numChannels <= 0)
             {
-                ttlTimestampBuffer[t].pop_front();
+                ttlTimestampBuffer[t].erase(ttlTimestampBuffer[t].begin());
                 jassertfalse;
                 return;
             }
+
+            // Get timestamp of trigger 
             uint64 stimTime = ttlTimestampBuffer[t].front();
-            uint32 nBufSamps = getNumSamples(0);
-            uint64 bufTimestamp = getTimestamp(0);
-            float curBufStartSamp = 0; // Middle buffers use all ...
-            float curBufEndSamp = nBufSamps; // samples in buffer
+            uint64 nBufSamps = getNumSamples(activeChannels[0]);
+            uint64 bufTimestamp = getTimestamp(activeChannels[0]);
+            // 0/110 for 
+            uint64 networkTS = getSourceTimestamp(110, 0);
+            uint64 curBufStartSamp = 0; // Middle buffers use all ...
+            uint64 curBufEndSamp = nBufSamps; // samples in buffer
             bool done = false;
-            if (stimTime > bufTimestamp) // first buffer, starts at stim, ends at end
+            // first buffer, starts at stim, ends at end of buffer
+            if (stimTime > bufTimestamp || (stimTime < bufTimestamp && curSamp[t] == 0)) 
             {
-                std::cout << "first buffer" << std::endl;
-                curBufStartSamp = stimTime - bufTimestamp;
-                std::cout << "Start Samp" << curBufStartSamp << std::endl;
+                if (stimTime > bufTimestamp)
+                {
+                    curBufStartSamp = stimTime - bufTimestamp;
+                }
+                else
+                {
+                    ttlTimestampBuffer[t][0] = bufTimestamp;
+                }
+                curSamp[t] = 0; // Start at beginning for the saved buffer, new data
             }
             
-            else if (stimTime + ERPLenSamps < bufTimestamp + nBufSamps) // last buffer, starts at 0, ends in middle
+            // last buffer, starts at 0, ends in middle of buffer
+            else if (stimTime + ERPLenSamps < bufTimestamp + nBufSamps) 
             {
-                std::cout << "Popping buffer" << std::endl;
                 curBufEndSamp = stimTime + ERPLenSamps - bufTimestamp;
-                ttlTimestampBuffer[t].pop_front();
+                ttlTimestampBuffer[t].erase(ttlTimestampBuffer[t].begin());
                 done = true;
             }
-
-            // Loop through each channel and add up LFP area under curve and average out the ERP data.
+            uint64 curNSamps = curBufEndSamp - curBufStartSamp;
+            // Loop through each channel and fill current audio buffer
             for (int n = 0; n < numChannels; n++)
-            {
+            {  
                 int chan = activeChannels[n];
-                const float* rpIn = buffer.getReadPointer(chan);
-                for (int samp = curBufStartSamp; samp < curBufEndSamp; samp++)
-                {
-                  
-                    float val = rpIn[samp];
-                    avgLFP[t][chan][samp].addValue(val); // Add to avg waveform
-                    curSum[t][chan] += abs(val); // Add to area under curve sum
-                }
+                curLFP[t].copyFrom(n, curSamp[t], buffer, chan, curBufStartSamp, curNSamps);
+
+                // Buffer filled, compute!
+                // Thread this? Can't imagine it's too difficult to compute though?
                 if (done)
                 {
-                    avgERP[t][chan].addValue(curSum[t][chan]);
+                    // Get read pointer for curLFP
+                    const float* rpIn = curLFP[t].getReadPointer(n);
+                    
+                    // Get our peak and sum by looping through buffer
+                    double curSum = 0;
+                    double curPeak = 0;
+                    uint64 curTimeToPeak = 0;
+                    for (uint64 samp = 0; samp < ERPLenSamps; samp++)
+                    {
+                        curSum += abs(rpIn[samp]);
+                        localAvgLFP[t][n][samp].addValue(rpIn[samp]);
+                        // Probably don't want the entire ERPLen samps for peak hmmm
+                        // Need to look at if this correct.
+                        if (curPeak <= abs(rpIn[samp])) 
+                        {
+                            curPeak = abs(rpIn[samp]);
+                            curTimeToPeak = samp;
+                        }
+                    }
+
+                    // Update values
+                    localAvgSum[t][n].addValue(curSum);
+                    
+                    localAvgPeak[t][n].addValue(curPeak);
+                    localAvgTimeToPeak[t][n].addValue(curTimeToPeak);
                 }
+            }
+            if (!done)
+            {
+                curSamp[t] += curNSamps; // Keep track of where we are in our saved buffer
+            }
+            else
+            {
+                // Send to Vis!
+
+                sumWriter->assign(localAvgSum.begin(), localAvgSum.end());
+                peakWriter->assign(localAvgPeak.begin(), localAvgPeak.end());
+                ttPeakWriter->assign(localAvgTimeToPeak.begin(), localAvgTimeToPeak.end());
+                LFPWriter->assign(localAvgLFP.begin(), localAvgLFP.end());
+
+                LFPWriter.pushUpdate();
+                sumWriter.pushUpdate();
+                peakWriter.pushUpdate();
+                ttPeakWriter.pushUpdate();
+                std::cout << "Pushed update!" << std::endl;
+
+                curSamp[t] = 0;
             }
         }
     }  
 }
 
-void ProcessorPlugin::handleEvent(const EventChannel* eventInfo, const MidiMessage& event, int sampleNum)
+void Node::handleEvent(const EventChannel* eventInfo, const MidiMessage& event, int sampleNum)
 {
     // Check if TTL event
     if (eventInfo->getChannelType() == EventChannel::TTL)
-    {   // check if TTL from right channel
-        TTLEventPtr ttl = TTLEvent::deserializeFromMessage(event, eventInfo);
+    {
+        // Loop through watched events
         for (int n = 0; n < triggerChannels.size(); n++)
-        { // Check which ttl event is triggered
-            if (ttl->getChannel() == triggerChannels[n] && ttl->getState())
+        {
+            // Check if Event is from the correct processor
+            if (eventInfo == eventChannelArray[triggerChannels[n].eventIndex])
             {
-                std::cout << "Putting this into buffer " << Event::getTimestamp(event) << std::endl;
-                ttlTimestampBuffer[n].push_back(Event::getTimestamp(event)); // add timestamp of TTL to buffer
+                // check if TTL from right channel
+                TTLEventPtr ttl = TTLEvent::deserializeFromMessage(event, eventInfo);
+                if (ttl->getChannel() == triggerChannels[n].channel && ttl->getSourceIndex() && ttl->getState())
+                {
+                    std::cout << "Got an event from " << ttl->getChannel() << std::endl;
+                    ttlTimestampBuffer[n].push_back(Event::getTimestamp(event)); // add timestamp of TTL to buffer
+                }
             }
         }
     }
 }
 
-
-Array<int> ProcessorPlugin::getActiveInputs()
+Array<int> Node::getActiveInputs()
 {
     int numInputs = getNumInputs();
     auto ed = static_cast<ERPEditor*>(getEditor());
@@ -161,7 +280,7 @@ Array<int> ProcessorPlugin::getActiveInputs()
 
 
 
-void ProcessorPlugin::setParameter(int parameterIndex, float newValue)
+void Node::setParameter(int parameterIndex, float newValue)
 {
     if (parameterIndex == ALPHA_E)
     {
@@ -175,16 +294,18 @@ void ProcessorPlugin::setParameter(int parameterIndex, float newValue)
     }
 }
 
-void ProcessorPlugin::saveCustomParametersToXml(XmlElement* parentElement)
+void Node::saveCustomParametersToXml(XmlElement* parentElement)
 {
+    
     XmlElement* mainNode = parentElement->createNewChildElement("REALTIMEERP");
 
     // ------ Save Trigger Channels ------ //
     XmlElement* ttlNode = mainNode->createNewChildElement("ttl");
-
+    
     for (int i = 0; i < triggerChannels.size(); i++)
     {
-        ttlNode->setAttribute("ttl" + String(i), triggerChannels[i]);
+        int triggerIndex = eventSourceArray.indexOf(triggerChannels[i]);
+        ttlNode->setAttribute("ttl" + String(i), triggerIndex);
     }
 
     // ------ Save Other Params ------ //
@@ -192,7 +313,7 @@ void ProcessorPlugin::saveCustomParametersToXml(XmlElement* parentElement)
     mainNode->setAttribute("ERPLen", ERPLenSec);
 }
 
-void ProcessorPlugin::loadCustomParametersFromXml()
+void Node::loadCustomParametersFromXml()
 {
  
     if (parametersAsXml)
@@ -203,12 +324,12 @@ void ProcessorPlugin::loadCustomParametersFromXml()
             forEachXmlChildElementWithTagName(*mainNode, node, "ttl")
             {
                 triggerChannels.clear();
-                for (int i = 0; i < 8; i++)
+                for (int i = 0; i < node->getNumAttributes(); i++)
                 {
-                    int channel = node->getIntAttribute("ttl" + String(i), -1);
-                    if (channel != -1)
+                    int index = node->getIntAttribute("ttl" + String(i), -1);
+                    if (index != -1)
                     {
-                        triggerChannels.addIfNotAlreadyThere(channel);
+                        triggerChannels.addIfNotAlreadyThere(eventSourceArray[index]);      
                     }
                     else
                     {

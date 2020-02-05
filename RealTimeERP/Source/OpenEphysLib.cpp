@@ -63,10 +63,10 @@ extern "C" EXPORT int getPluginInfo(int index, Plugin::PluginInfo* info)
 		info->processor.name = "Real Time ERP"; //Processor name shown in the GUI
 
 		//Type of processor. Can be FilterProcessor, SourceProcessor, SinkProcessor or UtilityProcessor. Specifies where on the processor list will appear
-		info->processor.type = ProcessorType::FilterProcessor;
+		info->processor.type = ProcessorType::SinkProcessor;
 
 		//Class factory pointer. Replace "ProcessorPluginSpace::ProcessorPlugin" with the namespace and class name.
-        info->processor.creator = &(Plugin::createProcessor<RealTimeERP::ProcessorPlugin>);
+        info->processor.creator = &(Plugin::createProcessor<RealTimeERP::Node>);
 		break;
 		/**
 		Examples for other plugin types

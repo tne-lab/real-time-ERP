@@ -4,22 +4,15 @@
 
 #include <ProcessorHeaders.h>
 #include <VisualizerEditorHeaders.h>
-#include <deque>
 #include <string>
+#include <vector>
+
+#include "AtomicSynchronizer.h"
+#include "CircularArray.h"
 
 //namespace must be an unique name for your plugin
 namespace RealTimeERP
 {
-	class ProcessorPlugin : public GenericProcessor
-	{
-    friend class ERPEditor;
-    friend class ERPVisualizer;
-
-    template<typename T>
-    using vector = std::vector<T>;
-
-    //using RWA = StatisticsAccumulator<float>;
-    
     struct RealWeightedAccum
     {
         RealWeightedAccum(double alpha = 0)
@@ -28,8 +21,9 @@ namespace RealTimeERP
             , alpha(alpha)
         {}
 
-        double getAverage()
+        double getAverage() const
         {
+            //std::cout << " GET AVG SUM " << sum << " and COUNT " << count << std::endl;
             return count > 0 ? sum / (double)count : double();
         }
 
@@ -37,23 +31,52 @@ namespace RealTimeERP
         {
             sum = x + (1 - alpha) * sum;
             count = 1 + (1 - alpha) * count;
+            //std::cout << "SUM " << sum << " and COUNT " << count << std::endl;
         }
 
     private:
         double sum;
         size_t count;
 
-        const double alpha;
+        double alpha;
     };
     using RWA = RealWeightedAccum;
-    
+
+    struct EventSources
+    {
+        unsigned int eventIndex;
+        unsigned int channel;
+        String name;
+
+        bool operator == (const EventSources& ES1) const
+        {
+            if (eventIndex == ES1.eventIndex && channel == ES1.channel && name == ES1.name)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }    
+        }      
+    };
+
+
+    // Main Node Class
+	class Node : public GenericProcessor
+	{
+    friend class ERPEditor;
+    friend class ERPVisualizer;
+
+    template<typename T>
+    using vector = std::vector<T>;  
 
 	public:
 		/** The class constructor, used to initialize any members. */
-        ProcessorPlugin();
+        Node();
 
 		/** The class destructor, used to deallocate memory */
-        ~ProcessorPlugin();
+        ~Node();
 
 		/** Indicates if the processor has a custom editor. Defaults to false */
 		bool hasEditor() const { return true; }
@@ -109,21 +132,32 @@ namespace RealTimeERP
 		*/
 		void updateSettings() override;
 
-        Array<int> ProcessorPlugin::getActiveInputs();
+        Array<int> Node::getActiveInputs();
 
     private:
         float fs;
-        bool currentlyFilling;
-        Array<int> triggerChannels;
-        vector<std::deque<uint64>> ttlTimestampBuffer;
-        vector<vector<RWA>> avgERP; // Average area under curve (trigger(ttl 1-8) x channel)
-        vector<vector<float>> curSum; // Currently sum of area under curve (trigger(ttl 1-8) x channel)
-        //vector<vector<AudioSampleBuffer>> avgLFP;
-        vector<vector<vector<RWA>>> avgLFP; // Save the average waveform (trigger(ttl 1-8) x channel x vector of waveform)
+        //Array<int> triggerChannels;
+        vector<vector<int64>> ttlTimestampBuffer;
+
+        vector<AudioSampleBuffer> curLFP; // Is this better???
+        // Calculations to send to visualizer
+        AtomicallyShared<vector<vector<RWA>>> avgSum; // Average area under curve (trigger(ttl 1-8) x channel)
+        AtomicallyShared<vector<vector<vector<RWA>>>> avgLFP; // Save the average waveform (trigger(ttl 1-8) x channel x vector of waveform)
+        AtomicallyShared<vector<vector<RWA>>> avgPeak; // Avg Peak height (trigger(ttl 1-8) x channel)
+        AtomicallyShared<vector<vector<RWA>>> avgTimeToPeak; // Avg time to the peak height (trigger(ttl 1-8) x channel)
+
+        vector<vector<RWA>> localAvgSum;
+        vector<vector<vector<RWA>>> localAvgLFP;
+        vector<vector<RWA>> localAvgPeak;
+        vector<vector<RWA>> localAvgTimeToPeak;
 
         float ERPLenSec;
         float ERPLenSamps;
+        vector<uint64> curSamp;
         float alpha;
+
+        Array<EventSources> triggerChannels;
+        Array<EventSources> eventSourceArray;
         
         enum Parameter
         {

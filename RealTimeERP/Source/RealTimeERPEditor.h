@@ -34,39 +34,34 @@ Alright all of the options need to fit on editor, vis will be onyl for vis and c
 
 #include "RealTimeERP.h"
 #include "RealTimeERPVisualizer.h"
+#include <VisualizerEditorHeaders.h>
 
 namespace RealTimeERP
 {
     class ERPEditor
         : public VisualizerEditor
         , public Label::Listener
-        , public ComboBox::Listener
     {
-
+        friend class ERPVisualizer;
     public:
-        ERPEditor(ProcessorPlugin* n);
+        ERPEditor(Node* n);
         ~ERPEditor();
 
         void labelTextChanged(Label* labelThatHasChanged) override;
-        void buttonClicked(Button* buttonClick) override;
+        void buttonEvent(Button* buttonClick) override;
+        void channelChanged(int chan, bool newState) override;
 
         void startAcquisition() override;
         void stopAcquisition() override;
 
         Visualizer* createNewCanvas() override;
-        void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override {};
 
-        void createElectrodeButtons(int nEvents);
 
-        void updateSettings() override;
+       void updateSettings() override;
 
     private:
-        ProcessorPlugin* processor;
-
-        // Label explaining that these are for TTL Channels
-        ScopedPointer<Label> ttlButtonLabel;
-        Array<ElectrodeButton*> ttlButtons;
-
+        Node* processor;
+        
         // Length of ERP calculation
         ScopedPointer<Label> ERPLenLabel;
         ScopedPointer<Label> ERPLenEditable;
@@ -76,7 +71,7 @@ namespace RealTimeERP
         ScopedPointer<ToggleButton> expButton;
         ScopedPointer<Label> alpha;
         ScopedPointer<Label> alphaE;
-
+        
         Label* ERPEditor::createLabel(const String& name, const String& text,
             juce::Rectangle<int> bounds);
         Label* ERPEditor::createEditable(const String& name, const String& initialValue,
