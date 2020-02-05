@@ -3,8 +3,8 @@ This repository contains a plugin for the [Open Ephys GUI](https://github.com/op
 
 Cite this code using the doi above!
 
-![Canvas](canvas.png "Visualizer")
-![Editor](editor.png "Editor")
+![Canvas](canvas.PNG)
+![Editor](editor.PNG)
 
 ## Settings
 For every event source chosen, the **average** for the following four properties will be saved. 
