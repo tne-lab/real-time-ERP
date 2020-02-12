@@ -34,6 +34,12 @@ namespace RealTimeERP
             //std::cout << "SUM " << sum << " and COUNT " << count << std::endl;
         }
 
+        void reset()
+        {
+            sum = 0;
+            count = 0.0;
+        }
+
     private:
         double sum;
         size_t count;
@@ -140,6 +146,8 @@ namespace RealTimeERP
         int numChannels;
 
         void resetVectors();
+        void setInstOrAvg(bool instOrAvg);
+        bool resetBuffer;
 
         //Array<int> triggerChannels;
         vector<vector<int64>> ttlTimestampBuffer;

@@ -33,12 +33,14 @@ using namespace RealTimeERP;
 ERPVisualizer::ERPVisualizer(Node* n)
 	: viewport(new Viewport())
 	, canvas(new Component("canvas"))
-	, processor(n)
-	, canvasBounds(0, 0, 1, 1)
+	, processor		(n)
+	, canvasBounds	(0, 0, 1, 1)
 	//, chanList ({})
-	, chanLabels({})
-	, channelYStart(140)
-	, channelYJump(50)
+	, chanLabels	({})
+	, channelYStart	(140)
+	, channelYJump	(50)
+	,numChannels	(0)
+	, numTriggers	(0)
 {
 	refreshRate = 2;
 	juce::Rectangle<int> bounds;
@@ -49,27 +51,51 @@ ERPVisualizer::ERPVisualizer(Node* n)
 	int yPos = 60;
 	int titlePos = 5;
 
-	for (double i = 0; i < 30000; i++)
-	{
-		dummy.push_back(i / 3000.0);
-		dummy2.push_back(i * 2 / 3000.0);
-	}
 	// -- Title -- //
 	title = createLabel("Title", "Real Time Event Related Potentials", { titlePos, 0, 280, 50 });
 
 	// -- Reset Button -- //
 	resetButton = new TextButton("Reset");
-	resetButton->setBounds(bounds = { 310, 10, 50, 30 });
+	resetButton->setBounds(bounds = { 290, 10, 70, 30 });
 	resetButton->addListener(this);
-	resetButton->setColour(Label::backgroundColourId, Colours::red);
+	resetButton->setColour(TextButton::buttonColourId, Colours::red);
 	resetButton->setColour(Label::textColourId, Colours::white);
+	
 	canvas->addAndMakeVisible(resetButton);
 	canvasBounds = canvasBounds.getUnion(bounds);
+
+	// -- Average/Instantaneous -- //
+	averageButton = new ToggleButton("Average");
+	averageButton->setBounds(bounds = { 370, 10, 70, 30 });
+	averageButton->addListener(this);
+	averageButton->setToggleState(true, dontSendNotification);
+	averageButton->setColour(ToggleButton::textColourId, Colours::white);
+	averageButton->setTooltip("Average event related potentials");
+	averageButton->setRadioGroupId(1, dontSendNotification);
+	canvas->addAndMakeVisible(averageButton);
+	canvasBounds = canvasBounds.getUnion(bounds);
+
+	instantButton = new ToggleButton("Instantaneous");
+	instantButton->setBounds(bounds = { 440, 10, 150, 30 });
+	instantButton->addListener(this);
+	instantButton->setRadioGroupId(1, dontSendNotification);
+	instantButton->setTooltip("Get event related potential of latest event ONLY");
+	instantButton->setColour(ToggleButton::textColourId, Colours::white);
+	
+	canvas->addAndMakeVisible(instantButton);
+	canvasBounds = canvasBounds.getUnion(bounds);
+
+	// -- Event Selector -- //
+	eventSelectLabel = createLabel("eventSelectLabel", "Select Events\nTo Watch ->", bounds = { 5, 45, 130, 50 });
+
+	// -- Event Viewer Selector -- //
+	int eventX = 5;
+	eventViewerLabel = createLabel("eventViewerLabel", "Select Event\nTo View ->", bounds = { eventX, channelYStart - 45, 130, 50 });
 
 	// -- Calculation Select -- //
 	calcSelect = new ComboBox("CalcSelect");
 	calcSelect->setTooltip("Select between displaying AUC, Peak Height or Time to Peak");
-	calcSelect->setBounds(bounds = { 170, channelYStart - 25 , 150,20 });
+	calcSelect->setBounds(bounds = { eventX + 300, channelYStart - 25 , 150,20 });
 	calcSelect->addListener(this);
 	canvas->addAndMakeVisible(calcSelect);
 	canvasBounds = canvasBounds.getUnion(bounds);
@@ -82,7 +108,7 @@ ERPVisualizer::ERPVisualizer(Node* n)
 	// -- Trigger Select -- //
 	trigSelect = new ComboBox("trigSelect");
 	trigSelect->setTooltip("Select between trigger channels to display the calcuated values for that trigger");
-	trigSelect->setBounds(bounds = { 5, channelYStart - 25, 150, 20 });
+	trigSelect->setBounds(bounds = { eventX + 130, channelYStart - 25, 150, 20 });
 	trigSelect->addListener(this);
 	canvas->addAndMakeVisible(trigSelect);
 	canvasBounds = canvasBounds.getUnion(bounds);
@@ -108,7 +134,7 @@ ERPVisualizer::ERPVisualizer(Node* n)
 void ERPVisualizer::flipCanvas()
 {
 	canvasBounds.setBottom(canvasBounds.getBottom() + 10);
-	canvasBounds.setRight(1000);
+	//canvasBounds.setRight(1000);
 	canvas->setBounds(canvasBounds);
 
 	viewport->setViewedComponent(canvas, false);
@@ -116,15 +142,6 @@ void ERPVisualizer::flipCanvas()
 	addAndMakeVisible(viewport);
 }
 
-void ERPVisualizer::drawERP(int chan)
-{
-	int yPos = channelYStart + chan * channelYJump;
-
-	for (int i = 0; i < 30000; i++)
-	{
-		dummy.push_back(i / 3000);
-	}
-}
 
 
 ERPVisualizer::~ERPVisualizer()
@@ -165,6 +182,7 @@ void ERPVisualizer::update()
 	avgPeak = vector<vector<String>>(numTriggers, vector<String>(numChannels, "0"));
 	avgTimeToPeak = vector<vector<String>>(numTriggers, vector<String>(numChannels, "0"));
 
+
 	createChannelRowLabels();
 	createElectrodeButtons();
 	resetTriggerChannels();
@@ -174,6 +192,9 @@ void ERPVisualizer::paint(Graphics& g)
 {
 	// Draw out our ERPS
 	int trigIndex = trigSelect->getSelectedId() - 1;
+	if (trigIndex < 0) {
+		return;
+	}
 	int trig = processor->triggerChannels[trigIndex].channel;
 	double max = NULL;
 	double min = NULL;
@@ -235,8 +256,6 @@ void ERPVisualizer::refresh()
 		peakReader.pullUpdate();
 		ttPeakReader.pullUpdate();
 
-		
-
 		for (int t = 0; t < numTriggers; t++)
 		{
 			for (int chan = 0; chan < numChannels; chan++)
@@ -257,6 +276,10 @@ void ERPVisualizer::refresh()
 	}
 
 	int trigIndex = trigSelect->getSelectedId() - 1;
+	if (trigIndex < 0)
+	{
+		return;
+	}
 	int trig = processor->triggerChannels[trigIndex].channel;
 	int calc = calcSelect->getSelectedId();
 	calcLabels.clear();
@@ -284,7 +307,7 @@ void ERPVisualizer::refresh()
 void ERPVisualizer::createElectrodeButtons()
 {
 	// Set consts for buttons
-	int xPos = 5;
+	int xPos = 135;
 	int yPos = 45;
 	juce::Rectangle<int> bounds;
 
@@ -305,7 +328,7 @@ void ERPVisualizer::createElectrodeButtons()
 		int nTTLEvents = processor->eventSourceArray.size();
 		int halfEvents = int(nTTLEvents / 2);
 
-		int width =  100;
+		int width =  110;
 
 		//int width = totalWidth / halfEvents; // total Width / Num cols
 		int height = totalHeight / 2; // total height / Num rums
@@ -333,7 +356,7 @@ void ERPVisualizer::createElectrodeButtons()
 			{
 				button->setBounds(bounds = { xPos + (e - halfEvents) * width, yPos + height, width, height });
 			}
-
+			canvasBounds = canvasBounds.getUnion(bounds);
 			button->setRadioGroupId(0);
 			button->setButtonText(String(processor->eventSourceArray[e].name));
 			button->addListener(this);
@@ -342,6 +365,7 @@ void ERPVisualizer::createElectrodeButtons()
 			ttlButtons.insert(e, button);
 		}
 	}
+	flipCanvas();
 }
 
 void ERPVisualizer::buttonClicked(Button* buttonClicked)
@@ -351,6 +375,16 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 		// Clears all vectors of data to start from scratch.
 		processor->resetVectors();
 		update();
+	}
+
+	if (buttonClicked == instantButton)
+	{
+		processor->setInstOrAvg(true);
+	}
+
+	if (buttonClicked == averageButton)
+	{
+		processor->setInstOrAvg(false);
 	}
 
 	if (ttlButtons.contains((ElectrodeButton*)buttonClicked))
@@ -368,6 +402,9 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 		{
 			processor->triggerChannels.removeAllInstancesOf(es);
 		}
+		//processor->triggerChannels.sort(); // sort by chan number? save in struct...? 
+		processor->resetVectors();
+		update();
 	}
 }
 
@@ -390,17 +427,14 @@ void ERPVisualizer::createChannelRowLabels()
 {
 	// Remove edging (bounds grow infintely if you don't)
 	canvasBounds.setBottom(canvasBounds.getBottom() - 10);
-	
 	// Redraw all for simplicity
 	chanLabels.clear();
 	for (int i = 0; i < numChannels; i++)
 	{
 		chanLabels.add(createLabel("ChanLabel" + String(processor->activeChannels[i] + 1), "Chan" + String(processor->activeChannels[i] + 1) + " - ", { 5, channelYStart + i * channelYJump + channelYJump / 2, 125 , 40 }));
 	}
-
 	// Redraw Canvas
 	flipCanvas();
-	repaint(); // Remove eventually (will have nothing to draw yet in actual setting)
 }
 
 Label* ERPVisualizer::createLabel(const String& name, const String& text,
@@ -419,6 +453,8 @@ Label* ERPVisualizer::createLabel(const String& name, const String& text,
 void ERPVisualizer::beginAnimation() 
 {
 	resetButton->setEnabled(false);
+	instantButton->setEnabled(false);
+	averageButton->setEnabled(false);
 	for (int t = 0; t < ttlButtons.size(); t++)
 	{
 		ttlButtons[t]->setEnabled(false);
@@ -427,6 +463,8 @@ void ERPVisualizer::beginAnimation()
 void ERPVisualizer::endAnimation() 
 {
 	resetButton->setEnabled(true);
+	instantButton->setEnabled(true);
+	averageButton->setEnabled(true);
 	for (int t = 0; t < ttlButtons.size(); t++)
 	{
 		ttlButtons[t]->setEnabled(true);

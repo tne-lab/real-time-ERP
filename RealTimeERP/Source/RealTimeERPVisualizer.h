@@ -68,7 +68,6 @@ namespace RealTimeERP
         void createChannelRowLabels();
         // Code to show canvas. Save on copy/pasting
         void flipCanvas();
-        void drawERP(int chan);
         void resetTriggerChannels();
 
         Label* createLabel(const String& name, const String& text, juce::Rectangle<int> bounds);
@@ -79,20 +78,20 @@ namespace RealTimeERP
 
         ScopedPointer<Label> title;
         ScopedPointer<TextButton> resetButton;
+        ScopedPointer<ToggleButton> averageButton;
+        ScopedPointer<ToggleButton> instantButton;
         ScopedPointer<ComboBox> calcSelect;
         ScopedPointer<ComboBox> trigSelect;
 
         Array<ScopedPointer<Label>> chanLabels;
         Array<ScopedPointer<Label>> calcLabels;
-
+        ScopedPointer<Label> eventSelectLabel;
+        ScopedPointer<Label> eventViewerLabel;
 
         int numChannels;
         int numTriggers;
 
         Array<Colour> colorList;
-
-        vector<double> dummy;
-        vector<double> dummy2;
 
         int channelYStart;
         int channelYJump;

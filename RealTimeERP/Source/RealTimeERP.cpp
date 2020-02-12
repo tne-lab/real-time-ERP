@@ -37,6 +37,7 @@ Node::Node()
     , alpha             (0)
     , curLFP            ({})
     , curSamp           ({})
+    , resetBuffer       (false)
     //, avgLFP            ({})//(0, vector<vector<RWA>>(0, vector<RWA>(0)))
     //, avgSum            ({})//(0,vector<RWA>(0))
     //, avgPeak           ({})//(0, vector<RWA>(0, RWA(0)))
@@ -237,6 +238,23 @@ void Node::process(AudioSampleBuffer& buffer)
                 std::cout << "Pushed update!" << std::endl;
 
                 curSamp[t] = 0;
+                if (resetBuffer)
+                {
+                    int numTriggers = triggerChannels.size();
+                    for (int trig = 0; trig < numTriggers; trig++)
+                    {
+                        for (int chan = 0; chan < numChannels; chan++)
+                        {
+                            localAvgSum[trig][chan].reset();
+                            localAvgPeak[trig][chan].reset();
+                            localAvgTimeToPeak[trig][chan].reset();
+                            for (int samp = 0; samp < ERPLenSamps; samp++)
+                            {
+                                localAvgLFP[trig][chan][samp].reset();
+                            }
+                        }
+                    }  
+                }
             }
         }
     }  
@@ -268,6 +286,32 @@ void Node::handleEvent(const EventChannel* eventInfo, const MidiMessage& event, 
 void Node::resetVectors()
 {
     updateSettings();
+}
+
+void Node::setInstOrAvg(bool instOrAvg)
+/*
+    Sending a 0 has the plugin save the average of ERPs over time.
+    Sending a 1 has the plugin only show data for the most recent Event.
+*/
+{
+    resetBuffer = instOrAvg ? true : false;
+    if (resetBuffer)
+    {
+        int numTriggers = triggerChannels.size();
+        for (int trig = 0; trig < numTriggers; trig++)
+        {
+            for (int chan = 0; chan < numChannels; chan++)
+            {
+                localAvgSum[trig][chan].reset();
+                localAvgPeak[trig][chan].reset();
+                localAvgTimeToPeak[trig][chan].reset();
+                for (int samp = 0; samp < ERPLenSamps; samp++)
+                {
+                    localAvgLFP[trig][chan][samp].reset();
+                }
+            }
+        }
+    }
 }
 
 Array<int> Node::getActiveInputs()
