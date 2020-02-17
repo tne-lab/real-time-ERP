@@ -39,8 +39,9 @@ ERPVisualizer::ERPVisualizer(Node* n)
 	, chanLabels	({})
 	, channelYStart	(140)
 	, channelYJump	(50)
-	,numChannels	(0)
+	, numChannels	(0)
 	, numTriggers	(0)
+	, acquisitionStarted	(false)
 {
 	refreshRate = 2;
 	juce::Rectangle<int> bounds;
@@ -361,6 +362,7 @@ void ERPVisualizer::createElectrodeButtons()
 			button->setButtonText(String(processor->eventSourceArray[e].name));
 			button->addListener(this);
 			button->setToggleState(buttonState, dontSendNotification);
+			button->setClickingTogglesState(false);
 			canvas->addAndMakeVisible(button);
 			ttlButtons.insert(e, button);
 		}
@@ -370,8 +372,10 @@ void ERPVisualizer::createElectrodeButtons()
 
 void ERPVisualizer::buttonClicked(Button* buttonClicked)
 {
+	std::cout << "Butotn clicked" << std::endl;
 	if (buttonClicked == resetButton)
 	{
+		std::cout << "reset???" << std::endl;
 		// Clears all vectors of data to start from scratch.
 		processor->resetVectors();
 		update();
@@ -389,22 +393,27 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 
 	if (ttlButtons.contains((ElectrodeButton*)buttonClicked))
 	{
-		ElectrodeButton* eButton = static_cast<ElectrodeButton*>(buttonClicked);
-		int n = eButton->getChannelNum() - 1; // button chan correspond with eventSourceArray
-		EventSources es = processor->eventSourceArray[n];
-		
-		// Remove or add to trigger list
-		if (eButton->getToggleState())
+		std::cout << "acq?" << acquisitionStarted << std::endl;
+		if (acquisitionStarted == false)
 		{
-			processor->triggerChannels.addIfNotAlreadyThere(es);
+			std::cout << "gottit" << std::endl;
+			ElectrodeButton* eButton = static_cast<ElectrodeButton*>(buttonClicked);
+			int n = eButton->getChannelNum() - 1; // button chan correspond with eventSourceArray
+			EventSources es = processor->eventSourceArray[n];
+			eButton->setToggleState(!eButton->getToggleState(), dontSendNotification);
+			// Remove or add to trigger list
+			if (eButton->getToggleState())
+			{
+				processor->triggerChannels.addIfNotAlreadyThere(es);
+			}
+			else
+			{
+				processor->triggerChannels.removeAllInstancesOf(es);
+			}
+			//processor->triggerChannels.sort(); // sort by chan number? save in struct...? 
+			processor->resetVectors();
+			update();
 		}
-		else
-		{
-			processor->triggerChannels.removeAllInstancesOf(es);
-		}
-		//processor->triggerChannels.sort(); // sort by chan number? save in struct...? 
-		processor->resetVectors();
-		update();
 	}
 }
 
@@ -452,22 +461,30 @@ Label* ERPVisualizer::createLabel(const String& name, const String& text,
 
 void ERPVisualizer::beginAnimation() 
 {
+	acquisitionStarted = true;
 	resetButton->setEnabled(false);
 	instantButton->setEnabled(false);
 	averageButton->setEnabled(false);
 	for (int t = 0; t < ttlButtons.size(); t++)
 	{
-		ttlButtons[t]->setEnabled(false);
+		if (!ttlButtons[t]->getToggleState())
+		{
+			ttlButtons[t]->setEnabled(false);
+		}
 	}
 }
 void ERPVisualizer::endAnimation() 
 {
+	acquisitionStarted = false;
 	resetButton->setEnabled(true);
 	instantButton->setEnabled(true);
 	averageButton->setEnabled(true);
 	for (int t = 0; t < ttlButtons.size(); t++)
 	{
-		ttlButtons[t]->setEnabled(true);
+		if (!ttlButtons[t]->getToggleState())
+		{
+			ttlButtons[t]->setEnabled(true);
+		}
 	}
 }
 

@@ -88,6 +88,8 @@ namespace RealTimeERP
         ScopedPointer<Label> eventSelectLabel;
         ScopedPointer<Label> eventViewerLabel;
 
+        bool acquisitionStarted;
+
         int numChannels;
         int numTriggers;
 
