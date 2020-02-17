@@ -38,12 +38,13 @@ Node::Node()
     , curLFP            ({})
     , curSamp           ({})
     , resetBuffer       (false)
+    , trigIndex         (0)
     //, avgLFP            ({})//(0, vector<vector<RWA>>(0, vector<RWA>(0)))
     //, avgSum            ({})//(0,vector<RWA>(0))
     //, avgPeak           ({})//(0, vector<RWA>(0, RWA(0)))
     //, avgTimeToPeak     ({})//(0, vector<RWA>(0,RWA(0)))
 {
-    setProcessorType(PROCESSOR_TYPE_SINK);
+    setProcessorType(PROCESSOR_TYPE_FILTER);
 }
 
 Node::~Node() {}
@@ -64,6 +65,19 @@ void Node::updateSettings()
     numChannels = activeChannels.size();
 
     int numTriggers = triggerChannels.size();
+
+    // -- Output vars -- //
+    curOutputBuffer = AudioSampleBuffer(getTotalDataChannels(), ERPLenSamps);
+    curOutputSamp = 0;
+
+    for (int n = 0; n < getTotalDataChannels(); n++)
+    {
+        float* wpIn = curOutputBuffer.getWritePointer(n);
+        for (int samp = 0; samp < ERPLenSamps; samp++)
+        {
+            wpIn[samp] = 0;
+        }
+    }
 
     // Init ttlTimestampBuffer to empty deques
     ttlTimestampBuffer = std::vector<std::vector<int64>>(numTriggers, std::vector<int64>(5));
@@ -230,6 +244,16 @@ void Node::process(AudioSampleBuffer& buffer)
                 peakWriter->assign(localAvgPeak.begin(), localAvgPeak.end());
                 ttPeakWriter->assign(localAvgTimeToPeak.begin(), localAvgTimeToPeak.end());
                 LFPWriter->assign(localAvgLFP.begin(), localAvgLFP.end());
+                for (int n = 0; n < numChannels; n++)
+                {
+                    int chan = activeChannels[n];
+                    float* wp = curOutputBuffer.getWritePointer(chan);
+                    std::cout << "writing channel " << chan << " from " << n << std::endl;
+                    for (int samp = 0; samp < localAvgLFP[trigIndex][n].size(); samp++)
+                    {
+                        wp[samp] = localAvgLFP[trigIndex][n][samp].getAverage();
+                    }
+                }
 
                 LFPWriter.pushUpdate();
                 sumWriter.pushUpdate();
@@ -258,6 +282,26 @@ void Node::process(AudioSampleBuffer& buffer)
             }
         }
     }  
+
+    // Send out buffer
+    int bufSamps = buffer.getNumSamples();
+    int tempSamp = curOutputSamp;
+    
+    for (int n = 0; n < buffer.getNumChannels(); n++)
+    {
+        float* wpIn = buffer.getWritePointer(n);
+        const float* rpIn = curOutputBuffer.getReadPointer(n);
+        int tempSamp = curOutputSamp;
+        for (int samp = 0; samp < bufSamps; samp++)
+        {
+            tempSamp = tempSamp % int(ERPLenSamps); // Loop buffer if at end
+            wpIn[samp] = rpIn[tempSamp++]; // copy over sample and increment
+        }
+
+    }
+
+    curOutputSamp += bufSamps;
+    curOutputSamp = curOutputSamp % int(ERPLenSamps); // Loop buffer if at end
 }
 
 void Node::handleEvent(const EventChannel* eventInfo, const MidiMessage& event, int sampleNum)
@@ -341,6 +385,10 @@ void Node::setParameter(int parameterIndex, float newValue)
     {
         ERPLenSec = newValue;
         updateSettings();
+    }
+    else if (parameterIndex == TRIG_INDEX)
+    {
+        trigIndex = newValue;
     }
 }
 

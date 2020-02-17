@@ -160,7 +160,10 @@ void ERPEditor::channelChanged(int chan, bool newState)
     if (!acquisitionIsActive)
     {
         processor->updateSettings();
-        canvas->update();
+        if (canvas != NULL)
+        {
+            canvas->update();
+        }
     }
 }
 

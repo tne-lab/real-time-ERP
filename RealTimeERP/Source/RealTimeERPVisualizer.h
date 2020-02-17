@@ -53,7 +53,7 @@ namespace RealTimeERP
         void endAnimation() override;
         void setParameter(int, float) override;
         void setParameter(int, int, int, float) override;
-        void comboBoxChanged(ComboBox* comboBoxThatHasChanged)  override {};
+        void comboBoxChanged(ComboBox* comboBoxThatHasChanged)  override;
         void labelTextChanged(Label* labelThatHasChanged) override {};
         void buttonClicked(Button* buttonClick) override;
         void paint(Graphics& g) override;

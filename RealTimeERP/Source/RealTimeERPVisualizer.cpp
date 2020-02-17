@@ -191,6 +191,7 @@ void ERPVisualizer::update()
 
 void ERPVisualizer::paint(Graphics& g) 
 {
+	/*
 	// Draw out our ERPS
 	int trigIndex = trigSelect->getSelectedId() - 1;
 	if (trigIndex < 0) {
@@ -239,7 +240,7 @@ void ERPVisualizer::paint(Graphics& g)
 			}
 
 		}
-	}
+	}*/
 
 }
 
@@ -372,10 +373,8 @@ void ERPVisualizer::createElectrodeButtons()
 
 void ERPVisualizer::buttonClicked(Button* buttonClicked)
 {
-	std::cout << "Butotn clicked" << std::endl;
 	if (buttonClicked == resetButton)
 	{
-		std::cout << "reset???" << std::endl;
 		// Clears all vectors of data to start from scratch.
 		processor->resetVectors();
 		update();
@@ -393,10 +392,8 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 
 	if (ttlButtons.contains((ElectrodeButton*)buttonClicked))
 	{
-		std::cout << "acq?" << acquisitionStarted << std::endl;
 		if (acquisitionStarted == false)
 		{
-			std::cout << "gottit" << std::endl;
 			ElectrodeButton* eButton = static_cast<ElectrodeButton*>(buttonClicked);
 			int n = eButton->getChannelNum() - 1; // button chan correspond with eventSourceArray
 			EventSources es = processor->eventSourceArray[n];
@@ -414,6 +411,16 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 			processor->resetVectors();
 			update();
 		}
+	}
+}
+
+void ERPVisualizer::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
+{
+	if (comboBoxThatHasChanged == trigSelect)
+	{
+		int trig = trigSelect->getSelectedId() - 1;
+		processor->setParameter(processor->TRIG_INDEX, trig);
+
 	}
 }
 

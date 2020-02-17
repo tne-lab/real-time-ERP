@@ -164,18 +164,23 @@ namespace RealTimeERP
         vector<vector<RWA>> localAvgPeak;
         vector<vector<RWA>> localAvgTimeToPeak;
 
+        AudioSampleBuffer curOutputBuffer;
+        int curOutputSamp;
+
         float ERPLenSec;
         float ERPLenSamps;
         vector<uint64> curSamp;
         float alpha;
 
+        int trigIndex;
         Array<EventSources> triggerChannels;
         Array<EventSources> eventSourceArray;
         
         enum Parameter
         {
             ALPHA_E,
-            ERP_LEN
+            ERP_LEN,
+            TRIG_INDEX
         };
 	};
 }
