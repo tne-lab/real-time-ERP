@@ -265,15 +265,16 @@ void Node::handleEvent(const EventChannel* eventInfo, const MidiMessage& event, 
     // Check if TTL event
     if (eventInfo->getChannelType() == EventChannel::TTL)
     {
-        // Loop through watched events
+       // Loop through watched events
         for (int n = 0; n < triggerChannels.size(); n++)
         {
             // Check if Event is from the correct processor
             if (eventInfo == eventChannelArray[triggerChannels[n].eventIndex])
             {
+                
                 // check if TTL from right channel
                 TTLEventPtr ttl = TTLEvent::deserializeFromMessage(event, eventInfo);
-                if (ttl->getChannel() == triggerChannels[n].channel && ttl->getSourceIndex() && ttl->getState())
+                if (ttl->getChannel() == triggerChannels[n].channel && ttl->getState())
                 {
                     std::cout << "Got an event from " << ttl->getChannel() << std::endl;
                     ttlTimestampBuffer[n].push_back(Event::getTimestamp(event)); // add timestamp of TTL to buffer
