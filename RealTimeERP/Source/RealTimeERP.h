@@ -146,6 +146,7 @@ namespace RealTimeERP
         int numChannels;
 
         void resetVectors();
+        void visResetVectors();
         void setInstOrAvg(bool instOrAvg);
         bool resetBuffer;
 
@@ -168,6 +169,7 @@ namespace RealTimeERP
         float ERPLenSamps;
         vector<uint64> curSamp;
         float alpha;
+        CriticalSection onlineReset;
 
         Array<EventSources> triggerChannels;
         Array<EventSources> eventSourceArray;

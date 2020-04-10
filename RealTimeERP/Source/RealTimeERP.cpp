@@ -138,6 +138,7 @@ void Node::process(AudioSampleBuffer& buffer)
         jassertfalse; // atomic sync data writer broken
     }
     // If new TTL timestamp to handle (stim happened), timestamp is removed once calculation is complete
+    ScopedLock resetLock(onlineReset);
     for (int t = 0; t < triggerChannels.size(); t++)
     {
         if (!ttlTimestampBuffer[t].empty())
@@ -240,20 +241,7 @@ void Node::process(AudioSampleBuffer& buffer)
                 curSamp[t] = 0;
                 if (resetBuffer)
                 {
-                    int numTriggers = triggerChannels.size();
-                    for (int trig = 0; trig < numTriggers; trig++)
-                    {
-                        for (int chan = 0; chan < numChannels; chan++)
-                        {
-                            localAvgSum[trig][chan].reset();
-                            localAvgPeak[trig][chan].reset();
-                            localAvgTimeToPeak[trig][chan].reset();
-                            for (int samp = 0; samp < ERPLenSamps; samp++)
-                            {
-                                localAvgLFP[trig][chan][samp].reset();
-                            }
-                        }
-                    }  
+                    resetVectors();
                 }
             }
         }
@@ -286,7 +274,26 @@ void Node::handleEvent(const EventChannel* eventInfo, const MidiMessage& event, 
 
 void Node::resetVectors()
 {
-    updateSettings();
+    int numTriggers = triggerChannels.size();
+    for (int trig = 0; trig < numTriggers; trig++)
+    {
+        for (int chan = 0; chan < numChannels; chan++)
+        {
+            localAvgSum[trig][chan].reset();
+            localAvgPeak[trig][chan].reset();
+            localAvgTimeToPeak[trig][chan].reset();
+            for (int samp = 0; samp < ERPLenSamps; samp++)
+            {
+                localAvgLFP[trig][chan][samp].reset();
+            }
+        }
+    }
+}
+
+void Node::visResetVectors()
+{
+    ScopedLock resetLock(onlineReset);
+    resetVectors();
 }
 
 void Node::setInstOrAvg(bool instOrAvg)
@@ -295,24 +302,12 @@ void Node::setInstOrAvg(bool instOrAvg)
     Sending a 1 has the plugin only show data for the most recent Event.
 */
 {
+    ScopedLock resetLock(onlineReset);
     resetBuffer = instOrAvg ? true : false;
     if (resetBuffer)
     {
-        int numTriggers = triggerChannels.size();
-        for (int trig = 0; trig < numTriggers; trig++)
-        {
-            for (int chan = 0; chan < numChannels; chan++)
-            {
-                localAvgSum[trig][chan].reset();
-                localAvgPeak[trig][chan].reset();
-                localAvgTimeToPeak[trig][chan].reset();
-                for (int samp = 0; samp < ERPLenSamps; samp++)
-                {
-                    localAvgLFP[trig][chan][samp].reset();
-                }
-            }
-        }
-    }
+        resetVectors();
+    } 
 }
 
 Array<int> Node::getActiveInputs()

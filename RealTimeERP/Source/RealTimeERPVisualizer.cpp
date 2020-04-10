@@ -372,13 +372,11 @@ void ERPVisualizer::createElectrodeButtons()
 
 void ERPVisualizer::buttonClicked(Button* buttonClicked)
 {
-	std::cout << "Butotn clicked" << std::endl;
 	if (buttonClicked == resetButton)
 	{
-		std::cout << "reset???" << std::endl;
 		// Clears all vectors of data to start from scratch.
-		processor->resetVectors();
-		update();
+		processor->visResetVectors();
+		//update();
 	}
 
 	if (buttonClicked == instantButton)
@@ -393,10 +391,8 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 
 	if (ttlButtons.contains((ElectrodeButton*)buttonClicked))
 	{
-		std::cout << "acq?" << acquisitionStarted << std::endl;
 		if (acquisitionStarted == false)
 		{
-			std::cout << "gottit" << std::endl;
 			ElectrodeButton* eButton = static_cast<ElectrodeButton*>(buttonClicked);
 			int n = eButton->getChannelNum() - 1; // button chan correspond with eventSourceArray
 			EventSources es = processor->eventSourceArray[n];
@@ -462,9 +458,9 @@ Label* ERPVisualizer::createLabel(const String& name, const String& text,
 void ERPVisualizer::beginAnimation() 
 {
 	acquisitionStarted = true;
-	resetButton->setEnabled(false);
-	instantButton->setEnabled(false);
-	averageButton->setEnabled(false);
+	//resetButton->setEnabled(false);
+	//instantButton->setEnabled(false);
+	//averageButton->setEnabled(false);
 	for (int t = 0; t < ttlButtons.size(); t++)
 	{
 		if (!ttlButtons[t]->getToggleState())
@@ -476,9 +472,9 @@ void ERPVisualizer::beginAnimation()
 void ERPVisualizer::endAnimation() 
 {
 	acquisitionStarted = false;
-	resetButton->setEnabled(true);
-	instantButton->setEnabled(true);
-	averageButton->setEnabled(true);
+	//resetButton->setEnabled(true);
+	//instantButton->setEnabled(true);
+	//averageButton->setEnabled(true);
 	for (int t = 0; t < ttlButtons.size(); t++)
 	{
 		if (!ttlButtons[t]->getToggleState())
