@@ -407,7 +407,7 @@ void ERPVisualizer::buttonClicked(Button* buttonClicked)
 				processor->triggerChannels.removeAllInstancesOf(es);
 			}
 			//processor->triggerChannels.sort(); // sort by chan number? save in struct...? 
-			processor->resetVectors();
+			processor->updateSettings();
 			update();
 		}
 	}
