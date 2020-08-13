@@ -26,7 +26,12 @@ namespace RealTimeERP
             //std::cout << " GET AVG SUM " << sum << " and COUNT " << count << std::endl;
             return count > 0 ? sum / (double)count : double();
         }
-
+		//Sumedh
+		double getSum() const
+		{
+			//std::cout << " GET AVG SUM " << sum << " and COUNT " << count << std::endl;
+			return sum;
+		}
         void addValue(double x)
         {
             sum = x + (1 - alpha) * sum;
@@ -164,6 +169,8 @@ namespace RealTimeERP
         vector<vector<vector<RWA>>> localAvgLFP;
         vector<vector<RWA>> localAvgPeak;
         vector<vector<RWA>> localAvgTimeToPeak;
+		//sumedh : not sure chek this
+		float stimulationValue;
 
         float ERPLenSec;
         float ERPLenSamps;

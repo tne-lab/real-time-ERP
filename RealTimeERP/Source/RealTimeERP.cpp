@@ -26,7 +26,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "RealTimeERP.h"
 #include "RealTimeERPEditor.h"
-
+#include <iostream>
+#include <fstream>
+#include <windows.h>
 using namespace RealTimeERP;
 
 Node::Node()
@@ -194,13 +196,14 @@ void Node::process(AudioSampleBuffer& buffer)
                 {
                     // Get read pointer for curLFP
                     const float* rpIn = curLFP[t].getReadPointer(n);
-                    
+					stimulationValue = abs(rpIn[0]);
                     // Get our peak and sum by looping through buffer
                     double curSum = 0;
                     double curPeak = 0;
                     uint64 curTimeToPeak = 0;
                     for (uint64 samp = 0; samp < ERPLenSamps; samp++)
                     {
+						
                         curSum += abs(rpIn[samp]);
                         localAvgLFP[t][n][samp].addValue(rpIn[samp]);
                         // Probably don't want the entire ERPLen samps for peak hmmm
@@ -226,7 +229,12 @@ void Node::process(AudioSampleBuffer& buffer)
             else
             {
                 // Send to Vis!
-
+				std::ofstream myfile("C:\\Users\\Tnel Neuropixels\\Desktop\\Sumedh\\example.csv", std::ios::app);
+				myfile << stimulationValue << "\n";
+				for (int k = 0; k < localAvgSum[0].size(); k++) {
+				myfile << localAvgSum[0][k].getSum() << ",";
+				}
+				myfile << "\n";
                 sumWriter->assign(localAvgSum.begin(), localAvgSum.end());
                 peakWriter->assign(localAvgPeak.begin(), localAvgPeak.end());
                 ttPeakWriter->assign(localAvgTimeToPeak.begin(), localAvgTimeToPeak.end());
