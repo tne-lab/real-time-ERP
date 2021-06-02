@@ -6,9 +6,11 @@
 #include <VisualizerEditorHeaders.h>
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include "AtomicSynchronizer.h"
 #include "CircularArray.h"
+
 
 //namespace must be an unique name for your plugin
 namespace RealTimeERP
@@ -180,7 +182,9 @@ namespace RealTimeERP
 
         Array<EventSources> triggerChannels;
         Array<EventSources> eventSourceArray;
-        
+
+        std::ofstream myfile;
+         
         enum Parameter
         {
             ALPHA_E,

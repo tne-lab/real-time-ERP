@@ -74,7 +74,7 @@ ERPEditor::ERPEditor(Node* p)
     alphaE = createEditable("alphaEditable", "0", "Input Value of Alpha", { col1, row3, 35, 27 });
     addAndMakeVisible(alphaE);
 
-    setEnabledState(false);
+    //setEnabledState(false);
 }
 
 ERPEditor::~ERPEditor() {}
@@ -174,6 +174,7 @@ void ERPEditor::startAcquisition()
     {
         canvas->beginAnimation();
     }
+    processor->myfile.open("E:\\test\\example.csv");
 }
 
 void ERPEditor::stopAcquisition()
@@ -186,6 +187,7 @@ void ERPEditor::stopAcquisition()
     {
         canvas->endAnimation();
     }
+    processor->myfile.close();
 }
    
 Visualizer* ERPEditor::createNewCanvas()

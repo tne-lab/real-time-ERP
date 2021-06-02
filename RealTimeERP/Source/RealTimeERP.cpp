@@ -29,6 +29,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <fstream>
 #include <windows.h>
+#include <stdio.h>
+#include <direct.h>
+
 using namespace RealTimeERP;
 
 Node::Node()
@@ -46,9 +49,10 @@ Node::Node()
     //, avgTimeToPeak     ({})//(0, vector<RWA>(0,RWA(0)))
 {
     setProcessorType(PROCESSOR_TYPE_SINK);
+    
 }
 
-Node::~Node() {}
+Node::~Node() { myfile.close(); }
 
 AudioProcessorEditor* Node::createEditor()
 {
@@ -229,8 +233,8 @@ void Node::process(AudioSampleBuffer& buffer)
             else
             {
                 // Send to Vis!
-				std::ofstream myfile("C:\\Users\\Tnel Neuropixels\\Desktop\\Sumedh\\example.csv", std::ios::app);
-				myfile << stimulationValue << "\n";
+				
+				//myfile << stimulationValue << "\n";
 				for (int k = 0; k < localAvgSum[0].size(); k++) {
 				myfile << localAvgSum[0][k].getSum() << ",";
 				}
@@ -365,6 +369,7 @@ void Node::saveCustomParametersToXml(XmlElement* parentElement)
     // ------ Save Other Params ------ //
     mainNode->setAttribute("alpha", alpha);
     mainNode->setAttribute("ERPLen", ERPLenSec);
+    mainNode->setAttribute("instOrAvg", resetBuffer);
 }
 
 void Node::loadCustomParametersFromXml()
@@ -394,6 +399,7 @@ void Node::loadCustomParametersFromXml()
             // Load other params
             alpha = mainNode->getDoubleAttribute("alpha");
             ERPLenSec = mainNode->getDoubleAttribute("ERPLen");
+            resetBuffer = mainNode->getDoubleAttribute("instOrAvg");
         }
     }
     editor->update();

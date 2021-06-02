@@ -69,7 +69,7 @@ ERPVisualizer::ERPVisualizer(Node* n)
 	averageButton = new ToggleButton("Average");
 	averageButton->setBounds(bounds = { 370, 10, 70, 30 });
 	averageButton->addListener(this);
-	averageButton->setToggleState(true, dontSendNotification);
+	
 	averageButton->setColour(ToggleButton::textColourId, Colours::white);
 	averageButton->setTooltip("Average event related potentials");
 	averageButton->setRadioGroupId(1, dontSendNotification);
@@ -82,6 +82,16 @@ ERPVisualizer::ERPVisualizer(Node* n)
 	instantButton->setRadioGroupId(1, dontSendNotification);
 	instantButton->setTooltip("Get event related potential of latest event ONLY");
 	instantButton->setColour(ToggleButton::textColourId, Colours::white);
+
+	// Set inst or avg
+	if (processor->resetBuffer)
+	{
+		instantButton->setToggleState(true, dontSendNotification);
+	}
+	else
+	{
+		averageButton->setToggleState(true, dontSendNotification);
+	}
 	
 	canvas->addAndMakeVisible(instantButton);
 	canvasBounds = canvasBounds.getUnion(bounds);
